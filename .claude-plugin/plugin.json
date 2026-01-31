@@ -1,0 +1,23 @@
+{
+  "name": "claude-router-system",
+  "version": "1.0.0",
+  "description": "Intelligent routing system for Claude Code with IVP architecture. Routes all requests through a central router that delegates to specialized or general agents based on task complexity, risk assessment, and cost optimization.",
+  "author": "Yannick Loth",
+  "license": "MIT",
+  "homepage": "https://github.com/yannickloth/claude-router-system",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yannickloth/claude-router-system.git"
+  },
+  "keywords": [
+    "router",
+    "agents",
+    "delegation",
+    "cost-optimization",
+    "ivp",
+    "architecture"
+  ],
+  "claudeCode": {
+    "minVersion": "0.1.0"
+  }
+}

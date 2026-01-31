@@ -1,0 +1,27 @@
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+
+# Node modules (if needed for tooling)
+node_modules/
+
+# Python cache (if needed for tooling)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Test outputs
+test-output/
