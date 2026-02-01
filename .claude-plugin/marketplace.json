@@ -11,7 +11,11 @@
     {
       "name": "claude-router-system",
       "version": "1.0.0",
-      "source": ".",
+      "author": {
+        "name": "Yannick Loth"
+      },
+      "source": "./",
+      "category": "development",
       "description": "Intelligent routing system for Claude Code with IVP-compliant architecture. Routes all requests through a central router that delegates to specialized or general agents based on task complexity, risk assessment, and cost optimization."
     }
   ]
