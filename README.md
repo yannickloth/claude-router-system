@@ -27,6 +27,7 @@
 - **Metrics collection**: Track performance across all 8 optimization solutions
 - **Daily/weekly reports**: Automated performance summaries with target assessment
 - **Monitoring hooks**: Routing audit, session state capture, morning briefing
+- **Usage tracking**: Agent invocation logging with duration, model tier, and cost estimates
 - **Integration testing**: Comprehensive test suite for all components
 
 ### 🤖 Agent Hierarchy
@@ -392,6 +393,78 @@ The router will check both the core general agents and your domain agents.
 - Saves money when sonnet success rate > 67%
 - Typical use cases: 75-85% success rate
 - Estimated savings: 40-50% vs direct-opus
+
+---
+
+## Usage Tracking & Cost Analysis
+
+### Viewing Usage Metrics
+
+The plugin tracks all agent invocations and estimates costs:
+
+```bash
+# View today's usage dashboard
+./scripts/usage-dashboard.sh
+
+# View last 7 days
+./scripts/usage-dashboard.sh --week
+
+# View last 30 days
+./scripts/usage-dashboard.sh --month
+
+# JSON output for integration
+./scripts/usage-dashboard.sh --json
+```
+
+### Dashboard Output
+
+```
+═══════════════════════════════════════════════════════════════════
+                 Claude Router Usage Dashboard
+═══════════════════════════════════════════════════════════════════
+
+Period: today
+Total Agent Invocations: 42
+
+───────────────────────────────────────────────────────────────────
+                      Model Distribution
+───────────────────────────────────────────────────────────────────
+
+  haiku      28  ████████████████████████████
+  sonnet     12  ████████████
+  opus        2  ██
+
+───────────────────────────────────────────────────────────────────
+                      Estimated Costs
+───────────────────────────────────────────────────────────────────
+
+  Haiku:   $0.0280  (28 invocations @ $0.0010/msg)
+  Sonnet:  $0.1440  (12 invocations @ $0.0120/msg)
+  Opus:    $0.1200  (2 invocations @ $0.0600/msg)
+  ─────────────────────────────
+  TOTAL:   $0.2920
+
+───────────────────────────────────────────────────────────────────
+                     Cost Optimization
+───────────────────────────────────────────────────────────────────
+
+  If all 42 tasks used Sonnet:  $0.5040
+  Actual cost with routing:      $0.2920
+  Estimated savings:             $0.2120
+  Savings percentage:            42.1%
+```
+
+### Metrics Storage
+
+- **Project logs**: `.claude/logs/routing.log` - Per-project routing decisions
+- **Global metrics**: `~/.claude/infolead-router/metrics/YYYY-MM-DD.jsonl` - Daily aggregated metrics
+
+### Hooks
+
+The plugin uses Claude Code hooks for tracking:
+
+- **SubagentStart**: Logs when agents spawn (timestamp, agent type, ID)
+- **SubagentStop**: Logs when agents complete (duration, exit status, model tier)
 
 ---
 
