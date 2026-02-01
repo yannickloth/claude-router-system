@@ -31,13 +31,14 @@
 - **Integration testing**: Comprehensive test suite for all components
 
 ### 🤖 Agent Hierarchy
-- **Router agents**: `router`, `router-escalation`, `strategy-advisor`
+- **Router agents**: `router`, `router-escalation`, `strategy-advisor`, `planner`
 - **General agents**: `haiku-general`, `sonnet-general`, `opus-general`
 - **Project agents**: Add your own specialized agents to `.claude/agents/`
 
 ### 💰 Cost Optimization
 - **Haiku pre-routing**: 30-40% escalation rate saves 60-70% quota
-- **Propose-review pattern**: Haiku proposes, Sonnet reviews for bulk mechanical tasks
+- **Propose-review pattern**: Haiku proposes, Sonnet reviews for bulk mechanical edits
+- **Draft-then-evaluate pattern**: Haiku batch-drafts, Sonnet batch-evaluates for content generation (40-60% savings at batch 10+)
 - **Semantic deduplication**: 40-50% cache hit rate eliminates redundant work
 - **Break-even analysis**: Only use expensive models when justified
 
@@ -169,7 +170,7 @@ results returned to user
 router → agent → results
 ```
 
-**Propose-review pattern** (for bulk mechanical tasks):
+**Propose-review pattern** (for bulk mechanical file edits):
 ```
 router → strategy-advisor
        ↓
@@ -181,6 +182,25 @@ results
 ```
 
 **Break-even:** Haiku→Sonnet saves money when success rate > 60%
+
+**Draft-then-evaluate pattern** (for bulk content generation):
+```
+router → strategy-advisor
+       ↓
+haiku-general (batch draft N items, 0 Sonnet quota)
+       ↓
+sonnet-general (batch evaluate all N in 1 message)
+       ↓
+sonnet-general (fix rejects only)
+       ↓
+results
+```
+
+**Break-even:** Profitable when acceptance rate > 1/N (batch 10: >10%, batch 50: >2%)
+
+**When to use which:**
+- **Propose-review**: Modifying existing files (patches, syntax fixes, refactors)
+- **Draft-then-evaluate**: Generating new content (docstrings, comments, descriptions)
 
 ---
 
@@ -266,6 +286,25 @@ strategy-advisor: Recommends direct-opus (no cheaper path)
 opus-general: Analyzes proof step-by-step
        ↓
 Results: "Proof verified. Found 1 subtle flaw in step 7: [detailed explanation]"
+```
+
+### Bulk Content Generation (Draft-Then-Evaluate)
+
+```
+User: "Generate docstrings for all 50 functions in src/utils/"
+
+router: Assesses → content generation, high volume, mechanical
+       ↓
+strategy-advisor: Recommends draft-then-evaluate (batch 50, ~60% acceptance expected)
+       ↓
+haiku-general: Generates 50 docstring drafts (0 Sonnet quota)
+       ↓
+sonnet-general: Batch evaluates all 50 in 1 message (1 Sonnet quota)
+       ↓
+sonnet-general: Fixes 20 rejected drafts (20 Sonnet quota)
+       ↓
+Results: "Generated 50 docstrings. 30 accepted, 15 refined, 5 replaced."
+         "Total: 21 Sonnet messages (58% savings vs 50 direct)"
 ```
 
 ---

@@ -15,6 +15,7 @@
 5. [Throughput Maximization](#throughput-maximization)
 6. [Context Window Strategy](#context-window-strategy)
 7. [Agent Delegation for Quota Efficiency](#agent-delegation-for-quota-efficiency)
+7a. [Draft-Then-Evaluate Pattern](#draft-then-evaluate-pattern)
 8. [Work Prioritization Framework](#work-prioritization-framework)
 9. [Batch vs Interactive Patterns](#batch-vs-interactive-patterns)
 10. [Quota Exhaustion Mitigation](#quota-exhaustion-mitigation)
@@ -469,6 +470,574 @@ Examples: logic-auditor, math-verifier
 
 ---
 
+## Draft-Then-Evaluate Pattern
+
+### The Core Idea
+
+**Let a cheaper model produce content, then have the expensive model evaluate it.**
+
+Standard delegation always uses the model capable of doing the task. But what if the cheaper model can *sometimes* produce acceptable output? Instead of paying for Sonnet every time, pay for Haiku drafting + Sonnet evaluation.
+
+```
+Traditional pattern:
+  Task → Sonnet (1 Sonnet quota)
+
+Draft-then-evaluate pattern:
+  Task → Haiku draft (0 Sonnet quota)
+      → Sonnet evaluate (1 Sonnet quota, but cheaper operation)
+      → Accept / Refine / Replace
+```
+
+**The bet:** If Haiku produces acceptable output often enough, **and you batch the evaluation**, the total quota cost is lower than always using Sonnet for generation. (Spoiler: this works at batch sizes ≥10 with acceptance rates ≥10%—see [Batch size impact](#factor-1-evaluation-can-be-batched) for the math.)
+
+### Why This Could Work
+
+**Generation and evaluation cost the same quota (1 message each). So where do savings come from?**
+
+| Operation | Cognitive Load | Typical Output Tokens | Quota Impact |
+|-----------|---------------|----------------------|--------------|
+| Generate content | High | 500-2000 | Full message |
+| Evaluate quality | Low-Medium | 50-200 | Full message (but faster) |
+| Refine specific issues | Medium | 200-500 | Full message |
+
+**Key insight:** Evaluation uses the same quota (1 Sonnet message) but offers secondary benefits:
+- Shorter context (just the draft + criteria)
+- Shorter output ("Accept" / "Issue: X, Fix: Y")
+- Faster execution (higher throughput per unit time)
+- Higher reliability (simpler operation = less can go wrong)
+
+**Important:** Evaluation does NOT reduce quota cost directly—both generation and evaluation cost 1 message. The real savings come from **batching** (see [Factor 1: Evaluation Can Be Batched](#factor-1-evaluation-can-be-batched) for the mathematical proof).
+
+### Mathematical Model
+
+**Variables:**
+```
+Q_direct = Quota cost for direct Sonnet generation (baseline: 1 Sonnet message)
+Q_draft = Quota cost for Haiku draft (0 Sonnet quota)
+Q_eval = Quota cost for evaluation (1 Sonnet message)
+Q_refine = Quota cost for refinement (1 Sonnet message, partial generation)
+Q_replace = Quota cost for full replacement (1 Sonnet message, full generation)
+
+P_accept = Probability draft is accepted as-is
+P_refine = Probability draft needs minor fixes
+P_replace = Probability draft is rejected (full regeneration)
+
+Note: P_accept + P_refine + P_replace = 1
+```
+
+**Expected quota cost per task:**
+```
+Q_draft_eval = Q_draft + Q_eval + (P_refine × Q_refine) + (P_replace × Q_replace)
+             = 0 + 1 + (P_refine × 1) + (P_replace × 1)
+             = 1 + P_refine + P_replace
+             = 1 + (1 - P_accept)
+             = 2 - P_accept
+```
+
+**Cost comparison (single task):**
+```
+Q_direct = 1 (always)
+Q_draft_eval = 2 - P_accept
+
+Draft-eval is cheaper when:
+  Q_draft_eval < Q_direct
+  2 - P_accept < 1
+  P_accept > 1
+
+⚠️ This is NEVER true for single tasks!
+Acceptance rate can't exceed 100%, so single-task draft-eval always costs more.
+```
+
+**Wait—the math says it's always more expensive?**
+
+Yes, **for single tasks**. But this analysis misses the key insight: **batch evaluation amortizes the overhead**. The real power of draft-then-evaluate emerges when processing multiple similar tasks together.
+
+### Factor 1: Evaluation Can Be Batched
+
+**Batch evaluation changes the math:**
+
+```
+Traditional (10 tasks):
+  10 × Sonnet = 10 Sonnet messages
+
+Draft-eval with batch evaluation (10 tasks):
+  Haiku drafts: 10 × 0 = 0 Sonnet quota
+  Batch evaluate: 1 Sonnet message (evaluate all 10 drafts at once)
+  Per-item refinement: P_refine × 10 × 1 = P_refine × 10 Sonnet
+  Per-item replacement: P_replace × 10 × 1 = P_replace × 10 Sonnet
+
+  Total: 1 + 10 × (P_refine + P_replace)
+       = 1 + 10 × (1 - P_accept)
+```
+
+**Cost comparison with batching:**
+```
+Q_direct = 10
+Q_batch_eval = 1 + 10 × (1 - P_accept)
+
+Draft-eval is cheaper when:
+  1 + 10 × (1 - P_accept) < 10
+  10 × (1 - P_accept) < 9
+  1 - P_accept < 0.9
+  P_accept > 0.1
+
+With batching: Profitable at >10% acceptance rate!
+```
+
+**Batch size impact:**
+```
+For batch size N:
+Q_batch_eval = 1 + N × (1 - P_accept)
+Q_direct = N
+
+Break-even: 1 + N × (1 - P_accept) = N
+           1 = N × P_accept
+           P_accept = 1/N
+
+Batch 5:   P_accept ≥ 20% to break even, >20% to profit
+Batch 10:  P_accept ≥ 10% to break even, >10% to profit
+Batch 20:  P_accept ≥ 5% to break even, >5% to profit
+Batch 50:  P_accept ≥ 2% to break even, >2% to profit
+```
+
+<!-- BLOG POST NOTE: Add visual diagram here showing batch size (x-axis) vs required acceptance rate (y-axis, 1/N curve). Would help visual learners see how quickly the threshold drops as batch size increases. -->
+
+### Factor 2: Refinement Executes Faster Than Generation
+
+**Same quota cost, but faster execution:**
+
+Both refinement and generation cost 1 Sonnet message. However, they differ in execution time:
+
+| Operation | Cognitive Steps | Typical Time |
+|-----------|-----------------|--------------|
+| Full generation | Parse → Plan → Execute → Verify | 20-40s |
+| Refinement | Read draft → Identify issue → Fix | 10-20s |
+
+**Why this matters for throughput:**
+```
+Same quota spent, but:
+- Refinement completes faster → more tasks per hour
+- Simpler operation → higher reliability (less rework)
+- Faster feedback loop → better user experience
+```
+
+**Important clarification:** This does NOT reduce quota consumption. You still spend 1 Sonnet message per refinement. The benefit is **time efficiency**, not quota efficiency. In a time-constrained work session, faster execution means more work completed before you stop for the day.
+
+### Factor 3: Parallel Processing
+
+**Haiku drafting can run in parallel:**
+
+```
+Sequential Sonnet (traditional):
+  10 tasks × 30 seconds = 300 seconds
+  Quota: 10 Sonnet messages
+
+Parallel Haiku drafting + batch eval + parallel refinement:
+  10 parallel Haiku drafts: 5 seconds (0 Sonnet quota)
+  1 batch evaluation: 10 seconds (1 Sonnet quota)
+  3 parallel refinements (30% rate): 10 seconds (3 Sonnet quota)
+  Total time: 25 seconds (12× faster)
+  Total quota: 4 Sonnet messages (60% savings)
+```
+
+**Clarification on "time vs quota":**
+
+Parallel processing provides two distinct benefits:
+
+1. **Quota savings** (the real win): Batch evaluation + lower refinement rate = fewer Sonnet messages
+2. **Time savings** (secondary): Faster completion = better user experience
+
+**Important:** Parallel execution does NOT speed up quota restoration. The 24-hour rolling window still applies—a message sent at 14:23 restores at 14:23 the next day, regardless of how fast it executed. The quota benefit comes from **using fewer messages**, not from faster execution.
+
+### Decision Framework
+
+**When to use draft-then-evaluate:**
+
+| Factor | Favorable | Unfavorable |
+|--------|-----------|-------------|
+| Task volume | High (10+) | Low (1-3) |
+| Task type | Mechanical, template-based | Creative, judgment-heavy |
+| Quality requirements | Flexible, iterative | Critical, first-time-right |
+| Haiku capability gap | Small (formatting, syntax) | Large (reasoning, style) |
+| Batch-ability | High (similar tasks) | Low (unique tasks) |
+
+**Acceptance rate predictions:**
+
+| Task Type | Expected P_accept | Expected P_refine | Expected P_replace |
+|-----------|-------------------|-------------------|-------------------|
+| Code comments | 60-80% | 15-30% | 5-15% |
+| API documentation | 50-70% | 20-35% | 10-20% |
+| Test descriptions | 40-60% | 25-40% | 15-25% |
+| Changelog entries | 50-70% | 20-35% | 10-20% |
+| Error messages | 30-50% | 30-45% | 15-30% |
+| User-facing copy | 10-30% | 30-50% | 30-50% |
+| Technical writing | 20-40% | 30-45% | 25-40% |
+| Creative content | 5-15% | 20-40% | 50-70% |
+
+*Note: These are theoretical estimates based on task complexity analysis. Actual rates vary significantly based on prompt quality, specific requirements, and model versions. **Always run a pilot batch (5-10 items) to measure your actual acceptance rates before committing to draft-eval for a large task set.***
+
+**Rule of thumb:** If Haiku can produce acceptable drafts >30% of the time, draft-eval with batching is profitable.
+
+### Implementation Patterns
+
+**Pattern 1: Simple batch evaluation**
+
+```
+1. Collect N similar tasks
+2. Generate N drafts with Haiku (parallel)
+3. Single Sonnet evaluation of all drafts
+4. Fix rejected drafts with Sonnet
+```
+
+**Quota cost:** 1 + N × (1 - P_accept) Sonnet messages
+
+**Pattern 2: Tiered evaluation**
+
+```
+1. Generate N drafts with Haiku
+2. First-pass evaluation with Haiku (filter obvious failures)
+3. Second-pass evaluation with Sonnet (judge borderline cases)
+4. Fix rejected drafts with Sonnet
+```
+
+**Quota cost:** Lower if Haiku can filter 50%+ of failures
+
+**Pattern 3: Adaptive drafting**
+
+```
+1. Generate draft with Haiku
+2. Haiku self-evaluation (confidence score)
+3. If low confidence: Regenerate with Sonnet directly
+4. If high confidence: Submit to Sonnet evaluation
+```
+
+**Quota cost:** Trades Haiku overhead for reduced Sonnet load on hard tasks
+
+### Worked Example: API Documentation
+
+**Scenario:** Generate docstrings for 50 functions.
+
+**Traditional approach:**
+```
+50 functions × 1 Sonnet = 50 Sonnet messages
+```
+
+**Draft-eval approach:**
+```
+Predicted rates: P_accept = 60%, P_refine = 30%, P_replace = 10%
+
+Phase 1 - Haiku drafting:
+  50 drafts × 0 Sonnet = 0 Sonnet quota
+
+Phase 2 - Batch evaluation:
+  1 evaluation message (assess all 50 drafts)
+  Cost: 1 Sonnet message
+
+Phase 3 - Fixes:
+  30% need refinement: 15 × 1 = 15 Sonnet messages
+  10% need replacement: 5 × 1 = 5 Sonnet messages
+  Cost: 20 Sonnet messages
+
+Total: 1 + 20 = 21 Sonnet messages
+Savings: 50 - 21 = 29 messages (58% reduction)
+```
+
+**Break-even analysis:**
+```
+For this to be worse than traditional:
+  1 + 50 × (1 - P_accept) > 50
+  1 - P_accept > 0.98
+  P_accept < 2%
+
+Haiku would need to produce acceptable docstrings <2% of the time.
+That's extremely unlikely for mechanical documentation.
+```
+
+### Worked Example: Creative Writing
+
+**Scenario:** Write 10 section introductions.
+
+**Predicted rates:** P_accept = 15%, P_refine = 35%, P_replace = 50%
+
+**Draft-eval approach:**
+```
+Phase 1 - Haiku drafting: 0 Sonnet
+Phase 2 - Batch evaluation: 1 Sonnet
+Phase 3 - Fixes:
+  35% refinement: 3.5 → 4 Sonnet messages
+  50% replacement: 5 Sonnet messages
+  Cost: 9 Sonnet messages
+
+Total: 1 + 9 = 10 Sonnet messages
+```
+
+**Traditional approach:**
+```
+10 sections × 1 Sonnet = 10 Sonnet messages
+```
+
+**Verdict:** Break-even. Creative content doesn't benefit from draft-eval because:
+- Low acceptance rate
+- High replacement rate
+- Small batch doesn't amortize evaluation cost
+
+### Risk Analysis
+
+**Risks of draft-then-evaluate:**
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Haiku drafts consistently poor | Wasted evaluation quota | Pilot with 5 tasks first, measure P_accept |
+| Evaluation misses quality issues | Poor output escapes | Periodic spot-checks with Opus |
+| Refinement insufficient | Multiple rounds needed | Switch to replacement after 1 failed refinement |
+| Batch evaluation overwhelmed | Poor judgment on large batches | Limit batch size to 20-30 items |
+| Task heterogeneity | Can't batch evaluate | Group similar tasks, process separately |
+
+**Risk-adjusted decision:**
+
+```
+If expected P_accept is uncertain:
+  → Run pilot batch (5-10 items)
+  → Measure actual P_accept, P_refine, P_replace
+  → If P_accept > 30%: Proceed with draft-eval
+  → If P_accept < 30%: Use traditional approach
+```
+
+### Advanced: Multi-Tier Evaluation
+
+**Three-tier pipeline for maximum efficiency:**
+
+```
+Tier 1 - Haiku drafting:
+  Generate all drafts (0 Sonnet quota)
+
+Tier 2 - Haiku filtering:
+  Quick self-evaluation (0 Sonnet quota)
+  Output: "confident" / "uncertain" / "failed"
+
+Tier 3a - Sonnet evaluation (uncertain only):
+  Evaluate drafts Haiku was uncertain about
+  Accept / Refine / Replace
+
+Tier 3b - Sonnet regeneration (failed only):
+  Direct generation for Haiku failures
+```
+
+**Expected quota (with explicit assumptions):**
+
+*Key assumptions requiring empirical validation:*
+
+- **Haiku self-evaluation accuracy:** We assume Haiku can correctly classify its own outputs into confident/uncertain/failed categories. This is a strong assumption—run pilot tests to measure actual classification accuracy.
+- **P_accept_uncertain:** Of drafts Haiku flags as "uncertain," what percentage does Sonnet ultimately accept? We estimate 40% based on the reasoning that uncertain drafts are borderline cases.
+
+```
+Assumptions (validate with pilot batch):
+  Haiku confident AND correct: 50% (accepted without Sonnet review)
+  Haiku uncertain (needs Sonnet eval): 30%
+  Haiku failed (self-detected, needs Sonnet gen): 20%
+
+  P_accept_uncertain = 40% (Sonnet accepts 40% of "uncertain" drafts)
+  P_refine_uncertain = 35% (Sonnet refines 35% of "uncertain" drafts)
+  P_replace_uncertain = 25% (Sonnet replaces 25% of "uncertain" drafts)
+
+For 100 tasks:
+  Tier 1 (Haiku drafts): 0 Sonnet quota
+  Tier 2 (Haiku self-eval): 0 Sonnet quota
+  Tier 3a (Sonnet evaluates 30 uncertain):
+    1 batch evaluation message
+    + 30 × P_refine_uncertain refinements = 30 × 0.35 = 10.5 → 11 Sonnet
+    + 30 × P_replace_uncertain replacements = 30 × 0.25 = 7.5 → 8 Sonnet
+    Subtotal: 1 + 11 + 8 = 20 Sonnet
+  Tier 3b (Sonnet generates for 20 Haiku failures):
+    20 × 1 = 20 Sonnet
+
+Total: 40 Sonnet messages (vs 100 traditional)
+Savings: 60%
+```
+
+**Validation requirement:** Before deploying multi-tier evaluation, run a pilot batch of 20-30 items to measure:
+
+1. Haiku self-classification accuracy (does "confident" actually mean correct?)
+2. Actual P_accept/refine/replace rates for the "uncertain" category
+3. Whether the complexity overhead is worth the quota savings
+
+### Integration with Existing Patterns
+
+**Draft-eval + Batch processing:**
+```
+Morning: Queue all mechanical tasks
+  → Haiku batch drafting (parallel)
+  → Sonnet batch evaluation (1 message)
+  → Sonnet batch refinement (as needed)
+
+Afternoon: Interactive complex work
+  → Direct Sonnet/Opus as appropriate
+```
+
+**Draft-eval + Quota conservation:**
+```
+When quota is scarce:
+  → Increase batch sizes (better amortization)
+  → Accept higher Haiku confidence threshold
+  → Defer low-acceptance-rate tasks
+```
+
+**Draft-eval + Agent workflows:**
+
+When integrating draft-eval into agent workflows, clarify the delegation model:
+
+```
+Option A: Sonnet coordinator (recommended for complex workflows)
+  literature-integrator agent (Sonnet): 1 Sonnet message
+    → Spawns Haiku agents: Download/extract (0 Sonnet)
+    → Spawns Haiku agents: Draft summaries (0 Sonnet)
+    → Batch evaluates drafts in same session (0 additional—part of coordinator)
+    → Generates insights in same session (0 additional—part of coordinator)
+  Total: 1 Sonnet message + refinement/replacement costs
+
+Option B: Haiku coordinator (maximum quota savings, simpler workflows only)
+  literature-integrator agent (Haiku): 0 Sonnet quota
+    → Downloads/extracts directly (0 Sonnet)
+    → Drafts summaries directly (0 Sonnet)
+    → Spawns Sonnet agent for batch evaluation (1 Sonnet)
+    → Spawns Sonnet agent for insights (1 Sonnet)
+  Total: 2 Sonnet messages + refinement/replacement costs
+  Caveat: Can Haiku reliably coordinate multi-step workflows?
+```
+
+**Architecture trade-off:** Option A uses fewer total messages if the Sonnet coordinator handles multiple steps in one session. Option B saves quota only if Haiku can reliably coordinate—test this assumption before deploying.
+
+### Metrics and Monitoring
+
+**Track these KPIs:**
+
+| Metric | Target | Action if Out of Range |
+|--------|--------|----------------------|
+| Acceptance rate | >40% | Review task selection for draft-eval |
+| Refinement success | >80% | Improve refinement prompts |
+| Replacement rate | <25% | Consider direct Sonnet for task type |
+| Eval batch size | 15-30 | Adjust batching strategy |
+| Time savings | >50% | Worth the complexity |
+
+**Dashboard metrics:**
+```
+Daily draft-eval stats (code documentation tasks):
+  Task type: API docstrings, code comments, changelog entries
+  Tasks processed: 150
+  Haiku drafts: 150 (0 Sonnet)
+  Evaluations: 6 batches (6 Sonnet)
+  Refinements: 45 (45 Sonnet)  [P_refine = 30%]
+  Replacements: 15 (15 Sonnet) [P_replace = 10%]
+
+  Implied acceptance rate: 60% (90/150 accepted as-is)
+  Total Sonnet: 66 messages
+  Traditional would be: 150 messages
+  Savings: 84 messages (56%)
+```
+
+*Note: These metrics reflect a favorable task type (mechanical documentation). Creative or judgment-heavy tasks would show lower acceptance rates and smaller savings.*
+
+### Failure Recovery
+
+**What happens when things go wrong?**
+
+The draft-eval pattern introduces failure points not present in direct generation. Plan for these scenarios:
+
+**Batch evaluation failure:**
+```
+Scenario: Sonnet crashes or rate-limits mid-evaluation (15/30 items evaluated)
+
+Recovery options:
+  1. Partial salvage: Accept the 15 evaluated items, re-batch remaining 15
+  2. Full retry: Discard partial results, retry entire batch
+  3. Fallback: Switch to individual evaluation (expensive but reliable)
+
+Recommendation: Option 1 (partial salvage) unless evaluation quality is suspect
+```
+
+**Refinement failure:**
+```
+Scenario: Sonnet's refinement doesn't fix the issue (draft still unacceptable)
+
+Recovery strategy:
+  1. First failure: Attempt replacement (full regeneration)
+  2. Replacement also fails: Escalate to Opus (if critical) or flag for human review
+  3. NEVER iterate on refinement—quota spiral risk
+
+Anti-pattern: "Let me try refining again" → can burn 3-5 messages on one item
+```
+
+**Haiku draft quality collapse:**
+```
+Scenario: Pilot showed 60% acceptance, but production batch shows 20%
+
+Diagnosis:
+  - Task drift? (requirements changed mid-batch)
+  - Prompt degradation? (context window issues)
+  - Model update? (Haiku behavior changed)
+
+Recovery:
+  1. Stop batch processing immediately
+  2. Measure actual acceptance rate on recent items
+  3. If P_accept < break-even threshold: switch to direct Sonnet
+  4. Investigate root cause before resuming draft-eval
+```
+
+**Self-evaluation miscalibration (multi-tier only):**
+```
+Scenario: Haiku marks 80% as "confident" but Sonnet rejects 40% of those
+
+Impact: Bypassed quality gate, bad outputs in production
+
+Recovery:
+  1. Halt multi-tier pipeline
+  2. Add Sonnet spot-check: randomly evaluate 10% of "confident" items
+  3. If spot-check failure rate >10%: disable Haiku self-eval, use simple batch pattern
+  4. Retune confidence threshold if continuing multi-tier
+```
+
+**General principle:** Draft-eval trades simplicity for efficiency. When failures occur, **fall back to simpler patterns** rather than adding complexity to fix the complex pattern.
+
+**Quick Reference: Failure Recovery**
+
+| Failure Type | Symptom | Immediate Action | Fallback |
+|--------------|---------|------------------|----------|
+| Batch eval crash | Partial results (15/30) | Salvage evaluated items, re-batch rest | Individual evaluation |
+| Refinement fails | Draft still bad after fix | Switch to replacement | Escalate to Opus or human |
+| Quality collapse | P_accept drops from 60%→20% | Stop batch, measure actual rate | Direct Sonnet generation |
+| Self-eval miscalibration | "Confident" items rejected 40% | Add Sonnet spot-checks (10%) | Disable multi-tier, use simple batch |
+
+### Summary: Draft-Eval Economics
+
+**When it works (40-70% savings):**
+- High-volume mechanical tasks
+- Template-based content
+- Predictable quality criteria
+- Batch-friendly workloads
+- Acceptance rate >30%
+
+**When it doesn't (break-even or worse):**
+- Low-volume tasks (<10)
+- Creative/subjective content
+- Unique/heterogeneous tasks
+- First-time-right requirements
+- Acceptance rate <20%
+
+**The key insight:**
+> Batch evaluation amortizes the overhead of quality gating.
+> Haiku drafts cost zero Sonnet quota—use them speculatively.
+> The savings come from batching, not from evaluation being "cheaper."
+
+**Decision shortcut:**
+```
+IF batch_size > 10 AND task_is_mechanical AND NOT critical:
+    → Use draft-then-evaluate
+ELSE:
+    → Use direct generation
+```
+
+---
+
 ## Work Prioritization Framework
 
 ### Quota Budgeting
@@ -742,6 +1311,8 @@ Strategy:
 ---
 
 ## Worked Examples
+
+*See also: Draft-Then-Evaluate worked examples in [Section 7a](#draft-then-evaluate-pattern) for API documentation (58% savings) and creative writing (break-even) scenarios.*
 
 ### Example 1: LaTeX Document Editing (Full Day)
 
