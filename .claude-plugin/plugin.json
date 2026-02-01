@@ -7,10 +7,7 @@
   },
   "license": "MIT",
   "homepage": "https://github.com/yannickloth/claude-router-system",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/yannickloth/claude-router-system.git"
-  },
+  "repository": "https://github.com/yannickloth/claude-router-system",
   "keywords": [
     "router",
     "agents",
@@ -18,8 +15,5 @@
     "cost-optimization",
     "ivp",
     "architecture"
-  ],
-  "claudeCode": {
-    "minVersion": "2.0.12"
-  }
+  ]
 }
