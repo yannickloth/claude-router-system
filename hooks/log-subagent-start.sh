@@ -19,13 +19,22 @@ mkdir -p "$LOGS_DIR"
 # Parse JSON
 AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // "unknown"')
 AGENT_ID=$(echo "$INPUT" | jq -r '.agent_id // "no-id"')
+TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript_path // ""')
 
 # Get project name from directory
 PROJECT=$(basename "$CWD")
 
+# Try to get task description from transcript (last Task tool call)
+DESCRIPTION=""
+if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
+    # Get the description from the most recent Task tool invocation
+    DESCRIPTION=$(jq -r '[.[] | select(.type == "tool_use" and .name == "Task") | .input.description // empty] | last // ""' "$TRANSCRIPT" 2>/dev/null | head -c 80)
+fi
+[ -z "$DESCRIPTION" ] && DESCRIPTION="no description"
+
 # Log the routing decision
 TIMESTAMP=$(date -Iseconds)
-echo "$TIMESTAMP | $PROJECT | $AGENT_TYPE | $AGENT_ID" >> "$ROUTING_LOG"
+echo "$TIMESTAMP | $PROJECT | $AGENT_TYPE | $DESCRIPTION" >> "$ROUTING_LOG"
 
 # Also output to stderr for real-time visibility in terminal
-echo "[routing] → $AGENT_TYPE" >&2
+echo "[routing] $PROJECT → $AGENT_TYPE: $DESCRIPTION" >&2
