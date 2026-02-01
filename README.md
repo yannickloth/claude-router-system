@@ -95,7 +95,7 @@ See [PHASE_3_4_IMPLEMENTATION.md](PHASE_3_4_IMPLEMENTATION.md) for complete deta
 /plugin marketplace add yannickloth/claude-router-system
 
 # Install plugin
-/plugin install router-system@yannickloth
+/plugin install claude-router-system@yannickloth
 ```
 
 ### Option 2: Manual Installation
@@ -103,10 +103,10 @@ See [PHASE_3_4_IMPLEMENTATION.md](PHASE_3_4_IMPLEMENTATION.md) for complete deta
 ```bash
 # Clone to your global Claude directory
 cd ~/.claude
-git clone https://github.com/yannickloth/claude-router-system.git plugins/router-system
+git clone https://github.com/yannickloth/claude-router-system.git plugins/claude-router-system
 
 # Symlink agents to global agents directory
-ln -s ~/.claude/plugins/router-system/agents/* ~/.claude/agents/
+ln -s ~/.claude/plugins/claude-router-system/agents/* ~/.claude/agents/
 ```
 
 ---
@@ -119,7 +119,7 @@ Copy the routing configuration template:
 
 ```bash
 # From your project root
-cp ~/.claude/plugins/router-system/EXAMPLE.claude.md .claude/CLAUDE.md
+cp ~/.claude/plugins/claude-router-system/EXAMPLE.claude.md .claude/CLAUDE.md
 ```
 
 Or add to your **global** `~/.claude/CLAUDE.md` to enable routing for all projects.
