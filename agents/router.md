@@ -165,6 +165,9 @@ Request: "Update the config"
 
 **Project-specific agents**: Check `.claude/agents/` first - use when task matches exactly
 
+- Use unqualified agent names (e.g., `test-runner`, not `claude-router-system:test-runner`)
+- Project agents are resolved from the project's `.claude/agents/` directory
+
 **General agents** (choose by reasoning needed):
 
 - `haiku-general`: Mechanical, no judgment, explicit paths only
