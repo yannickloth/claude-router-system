@@ -155,22 +155,54 @@ class SemanticCache:
         """
         Compute semantic embedding for text.
 
-        In production, use actual embedding model (e.g., sentence-transformers):
-            from sentence_transformers import SentenceTransformer
-            model = SentenceTransformer('all-MiniLM-L6-v2')
-            embedding = model.encode(text)
+        Uses sentence-transformers if available, falls back to TF-IDF for lightweight operation.
+        Model: all-MiniLM-L6-v2 (384 dimensions, fast, good quality)
 
-        This implementation uses simple TF-IDF-like embedding for demonstration.
+        Installation: pip install sentence-transformers
         """
-        # Simplified TF-IDF-like embedding (demonstration only)
+        # Try to use actual embedding model
+        try:
+            if not hasattr(self, '_embedding_model'):
+                # Lazy load model on first use
+                from sentence_transformers import SentenceTransformer
+                print("Loading embedding model (all-MiniLM-L6-v2)...")
+                self._embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+                print("✓ Embedding model loaded")
+
+            # Generate embedding (returns numpy array)
+            embedding = self._embedding_model.encode(text)
+            return embedding.tolist()
+
+        except ImportError:
+            # Fall back to TF-IDF if sentence-transformers not available
+            if not hasattr(self, '_warned_fallback'):
+                print("⚠ sentence-transformers not available. Using TF-IDF fallback.")
+                print("  Install for better accuracy: pip install sentence-transformers")
+                self._warned_fallback = True
+
+            return self._compute_tfidf_embedding(text)
+
+        except Exception as e:
+            # Fall back on any model loading error
+            print(f"⚠ Embedding model error: {e}. Using TF-IDF fallback.")
+            return self._compute_tfidf_embedding(text)
+
+    def _compute_tfidf_embedding(self, text: str) -> List[float]:
+        """
+        Fallback TF-IDF-like embedding when sentence-transformers unavailable.
+
+        This is a simplified implementation for demonstration. For production
+        without sentence-transformers, consider using scikit-learn's TfidfVectorizer.
+        """
+        # Simplified TF-IDF-like embedding
         words = text.lower().split()
         vocab = sorted(set(words))
 
         # Create frequency vector
-        embedding = [words.count(w) / len(words) for w in vocab[:128]]
+        embedding = [words.count(w) / len(words) for w in vocab[:384]]
 
-        # Pad to fixed size
-        while len(embedding) < 128:
+        # Pad to match sentence-transformers dimension (384)
+        while len(embedding) < 384:
             embedding.append(0.0)
 
         # Normalize to unit vector
@@ -178,7 +210,7 @@ class SemanticCache:
         if magnitude > 0:
             embedding = [x / magnitude for x in embedding]
 
-        return embedding[:128]
+        return embedding[:384]
 
     def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
         """
@@ -336,19 +368,104 @@ class SemanticCache:
             print(f"🗑️  Invalidated {len(invalidated)} cached results due to file changes")
 
     def get_statistics(self) -> Dict:
-        """Return cache statistics."""
+        """
+        Return comprehensive cache statistics.
+
+        Returns:
+            Dictionary with cache metrics including hit rate, quota savings,
+            most frequently cached queries, and cache size recommendations.
+        """
         total_entries = len(self.cache_index)
         total_hits = sum(c.hit_count for c in self.cache_index.values())
         total_quota_saved = sum(
             c.quota_cost * c.hit_count for c in self.cache_index.values()
         )
 
+        # Find most frequently hit items
+        top_hits = sorted(
+            self.cache_index.values(),
+            key=lambda c: c.hit_count,
+            reverse=True
+        )[:5]
+
+        # Calculate hit rate (hits per entry)
+        avg_hits_per_entry = total_hits / total_entries if total_entries > 0 else 0
+
+        # Estimate total requests (entries + hits)
+        total_requests = total_entries + total_hits
+        hit_rate = (total_hits / total_requests * 100) if total_requests > 0 else 0
+
+        # Count expired entries
+        now = datetime.now()
+        expired_count = sum(
+            1 for c in self.cache_index.values()
+            if (now - c.timestamp) > timedelta(days=self.ttl_days)
+        )
+
+        # Calculate cache size
+        cache_size_mb = sum(
+            len(json.dumps(c.to_dict()))
+            for c in self.cache_index.values()
+        ) / (1024 * 1024)
+
         return {
             "total_entries": total_entries,
             "total_hits": total_hits,
+            "total_requests": total_requests,
+            "hit_rate_percent": hit_rate,
+            "avg_hits_per_entry": avg_hits_per_entry,
             "total_quota_saved": total_quota_saved,
-            "hit_rate": total_hits / total_entries if total_entries > 0 else 0,
+            "expired_entries": expired_count,
+            "cache_size_mb": cache_size_mb,
+            "top_cached_queries": [
+                {
+                    "query": c.request_text[:60] + "..." if len(c.request_text) > 60 else c.request_text,
+                    "hits": c.hit_count,
+                    "quota_saved": c.quota_cost * c.hit_count,
+                    "agent": c.agent_used
+                }
+                for c in top_hits
+            ],
+            "recommendation": self._get_optimization_recommendation(
+                hit_rate, expired_count, total_entries
+            )
         }
+
+    def _get_optimization_recommendation(
+        self,
+        hit_rate: float,
+        expired_count: int,
+        total_entries: int
+    ) -> str:
+        """Generate cache optimization recommendation."""
+        recommendations = []
+
+        # Target: 40-50% hit rate
+        if hit_rate < 30:
+            recommendations.append(
+                "Low hit rate (<30%). Consider caching more frequently used queries."
+            )
+        elif hit_rate > 60:
+            recommendations.append(
+                "High hit rate (>60%). Excellent! Cache is performing well."
+            )
+
+        # Cleanup recommendations
+        if expired_count > total_entries * 0.2:
+            recommendations.append(
+                f"Many expired entries ({expired_count}). Run cleanup_expired()."
+            )
+
+        # Size recommendations
+        if total_entries > 1000:
+            recommendations.append(
+                "Large cache (>1000 entries). Consider reducing TTL or implementing LRU eviction."
+            )
+
+        if not recommendations:
+            return "Cache operating efficiently. No action needed."
+
+        return " ".join(recommendations)
 
     def cleanup_expired(self) -> int:
         """
@@ -368,40 +485,118 @@ class SemanticCache:
 
         if removed:
             self._save_cache_index()
+            print(f"🗑️  Cleaned up {len(removed)} expired cache entries")
 
         return len(removed)
 
+    def print_statistics(self):
+        """Print cache statistics in human-readable format."""
+        stats = self.get_statistics()
 
-# Test usage
+        print("\n📊 Semantic Cache Statistics")
+        print("=" * 60)
+        print(f"Total entries:      {stats['total_entries']}")
+        print(f"Total requests:     {stats['total_requests']}")
+        print(f"Cache hits:         {stats['total_hits']}")
+        print(f"Hit rate:           {stats['hit_rate_percent']:.1f}%")
+        print(f"Avg hits/entry:     {stats['avg_hits_per_entry']:.1f}")
+        print(f"Quota saved:        {stats['total_quota_saved']} messages")
+        print(f"Cache size:         {stats['cache_size_mb']:.2f} MB")
+        print(f"Expired entries:    {stats['expired_entries']}")
+        print()
+
+        if stats['top_cached_queries']:
+            print("🔥 Most Frequently Cached Queries:")
+            for i, query in enumerate(stats['top_cached_queries'], 1):
+                print(f"  {i}. [{query['agent']}] {query['query']}")
+                print(f"     Hits: {query['hits']}, Quota saved: {query['quota_saved']}")
+            print()
+
+        print(f"💡 {stats['recommendation']}")
+        print("=" * 60)
+        print()
+
+
+# Test and CLI usage
 if __name__ == "__main__":
+    import sys
+
     # Create cache
     cache = SemanticCache(
         cache_dir=Path.home() / ".claude" / "infolead-router" / "cache",
-        similarity_threshold=0.85
+        similarity_threshold=0.85,
+        ttl_days=30
     )
 
-    # Store a result
-    cache.store(
-        request="Find papers on mitochondrial dysfunction in ME/CFS",
-        agent="literature-integrator",
-        result=["Smith2024", "Jones2023", "Lee2025"],
-        quota_cost=15
-    )
+    # CLI interface
+    if len(sys.argv) > 1:
+        command = sys.argv[1]
 
-    # Try to find similar request (should hit)
-    result = cache.find_similar(
-        request="Search for research on mitochondria in chronic fatigue",
-        agent="literature-integrator"
-    )
+        if command == "stats":
+            cache.print_statistics()
+            sys.exit(0)
 
-    if result:
-        print(f"\nFound cached result: {result.result}")
-    else:
-        print("\nNo cache hit")
+        elif command == "cleanup":
+            removed = cache.cleanup_expired()
+            print(f"Removed {removed} expired entries")
+            cache.print_statistics()
+            sys.exit(0)
 
-    # Display statistics
-    stats = cache.get_statistics()
-    print(f"\nCache statistics:")
-    print(f"  Total entries: {stats['total_entries']}")
-    print(f"  Total hits: {stats['total_hits']}")
-    print(f"  Quota saved: {stats['total_quota_saved']}")
+        elif command == "test":
+            print("Running semantic cache test...")
+            print()
+
+            # Store a result
+            print("1. Storing result for: 'Find papers on mitochondrial dysfunction in ME/CFS'")
+            cache.store(
+                request="Find papers on mitochondrial dysfunction in ME/CFS",
+                agent="literature-integrator",
+                result=["Smith2024", "Jones2023", "Lee2025"],
+                quota_cost=15
+            )
+
+            # Try to find similar request (should hit)
+            print("\n2. Searching for similar: 'Search for research on mitochondria in chronic fatigue'")
+            result = cache.find_similar(
+                request="Search for research on mitochondria in chronic fatigue",
+                agent="literature-integrator"
+            )
+
+            if result:
+                print(f"   ✓ Found cached result: {result.result}")
+                print(f"   Similarity was high enough for cache hit!")
+            else:
+                print("   ✗ No cache hit (similarity too low)")
+
+            # Store another result
+            print("\n3. Storing result for: 'Analyze code quality in Python files'")
+            cache.store(
+                request="Analyze code quality in Python files",
+                agent="code-analyzer",
+                result={"issues": 5, "warnings": 12},
+                quota_cost=8
+            )
+
+            # Display statistics
+            print()
+            cache.print_statistics()
+
+            sys.exit(0)
+
+        else:
+            print(f"Unknown command: {command}")
+            print("Usage: python semantic_cache.py [test|stats|cleanup]")
+            sys.exit(1)
+
+    # Default: run basic test
+    print("Semantic Cache - Enhanced with Embeddings")
+    print("Usage: python semantic_cache.py [test|stats|cleanup]")
+    print()
+    print("Features:")
+    print("  - Semantic similarity matching (cosine similarity)")
+    print("  - Context-aware invalidation (file change detection)")
+    print("  - TTL-based expiration")
+    print("  - Hit rate tracking and optimization")
+    print("  - sentence-transformers support (falls back to TF-IDF)")
+    print()
+    print("Run 'python semantic_cache.py test' for demonstration")

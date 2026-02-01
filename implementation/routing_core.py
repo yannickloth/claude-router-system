@@ -3,11 +3,23 @@ Routing Core - Production-ready implementation of Haiku pre-routing and escalati
 
 This module implements the two-tier routing architecture with mechanical escalation
 triggers that Haiku can reliably execute.
+
+CLI Usage:
+    # From stdin
+    echo "Find files matching *.py" | python3 routing_core.py
+
+    # From arguments
+    python3 routing_core.py "Design a new architecture"
+
+    # JSON output mode
+    echo "Test request" | python3 routing_core.py --json
 """
 
 from typing import Dict, Optional, Tuple, List
 import re
-from dataclasses import dataclass
+import sys
+import json
+from dataclasses import dataclass, asdict
 from enum import Enum
 
 
@@ -24,6 +36,15 @@ class RoutingResult:
     agent: Optional[str]
     reason: str
     confidence: float
+
+    def to_dict(self) -> Dict:
+        """Convert to dictionary for JSON serialization"""
+        return {
+            "decision": self.decision.value,
+            "agent": self.agent,
+            "reason": self.reason,
+            "confidence": self.confidence,
+        }
 
 
 def explicit_file_mentioned(request: str) -> bool:
@@ -116,6 +137,9 @@ def should_escalate(request: str, context: Optional[Dict] = None) -> RoutingResu
     context = context or {}
     request_lower = request.lower()
 
+    # Check for explicit file paths (used by multiple patterns)
+    has_explicit_path = "/" in request or explicit_file_mentioned(request)
+
     # Pattern 1: Explicit complexity signals
     complexity_keywords = [
         "complex", "subtle", "nuanced", "judgment",
@@ -144,7 +168,6 @@ def should_escalate(request: str, context: Optional[Dict] = None) -> RoutingResu
     # Pattern 3: Ambiguous targets (file operations without explicit paths)
     file_operations = ["edit", "modify", "change", "update", "delete", "remove"]
     has_file_operation = any(op in request_lower for op in file_operations)
-    has_explicit_path = "/" in request or explicit_file_mentioned(request)
 
     if has_file_operation and not has_explicit_path:
         return RoutingResult(
@@ -200,6 +223,24 @@ def should_escalate(request: str, context: Optional[Dict] = None) -> RoutingResu
             confidence=1.0
         )
 
+    # For simple file operations with explicit paths, use lower confidence threshold
+    # These are mechanical operations that don't require judgment
+    simple_operations = ["fix", "typo", "format", "rename", "correct", "update"]
+    is_simple_file_op = (
+        has_explicit_path and
+        any(op in request_lower for op in simple_operations)
+    )
+
+    if is_simple_file_op:
+        # Simple file operations can go directly to haiku-general regardless of confidence
+        return RoutingResult(
+            decision=RouterDecision.DIRECT_TO_AGENT,
+            agent="haiku-general",
+            reason="Simple file operation with explicit path - mechanical task",
+            confidence=0.95  # High confidence for mechanical operations
+        )
+
+    # For other requests, require high confidence (80%)
     if confidence < 0.8:
         return RoutingResult(
             decision=RouterDecision.ESCALATE_TO_SONNET,
@@ -217,8 +258,74 @@ def should_escalate(request: str, context: Optional[Dict] = None) -> RoutingResu
     )
 
 
-# Test cases
-if __name__ == "__main__":
+def format_routing_output(result: RoutingResult, user_request: str) -> str:
+    """
+    Format routing result for human-readable output
+
+    Args:
+        result: RoutingResult from should_escalate()
+        user_request: Original user request
+
+    Returns:
+        Formatted string for display
+    """
+    output = []
+    output.append("🎯 Routing Analysis")
+    output.append("═" * 50)
+    output.append(f"Request: {user_request}")
+    output.append("")
+
+    if result.decision == RouterDecision.ESCALATE_TO_SONNET:
+        output.append("⚠️  ESCALATE to Sonnet Router")
+        output.append(f"Reason: {result.reason}")
+        if result.agent:
+            output.append(f"Suggested agent: {result.agent}")
+    else:
+        output.append(f"✅ DIRECT to Agent: {result.agent}")
+        output.append(f"Reason: {result.reason}")
+
+    output.append(f"Confidence: {result.confidence:.1%}")
+    output.append("")
+
+    return "\n".join(output)
+
+
+def run_cli() -> None:
+    """CLI entry point for routing analysis"""
+    # Parse arguments
+    args = sys.argv[1:]
+    output_json = "--json" in args
+
+    # Remove flags from args
+    args = [arg for arg in args if not arg.startswith("--")]
+
+    # Get user request from stdin or args
+    if args:
+        user_request = " ".join(args)
+    else:
+        user_request = sys.stdin.read().strip()
+
+    if not user_request:
+        print("Error: No request provided", file=sys.stderr)
+        print("Usage: echo 'request' | routing_core.py [--json]", file=sys.stderr)
+        sys.exit(1)
+
+    # Perform routing analysis
+    result = should_escalate(user_request)
+
+    # Output result
+    if output_json:
+        output = {
+            "request": user_request,
+            "routing": result.to_dict(),
+        }
+        print(json.dumps(output, indent=2))
+    else:
+        print(format_routing_output(result, user_request))
+
+
+def run_tests() -> None:
+    """Run test cases for routing logic"""
     test_cases = [
         # Should escalate
         ("Which approach is best for implementing authentication?", True),
@@ -227,7 +334,6 @@ if __name__ == "__main__":
         ("Modify the agent definitions", True),
         ("Create a new API endpoint and add tests", True),  # Multiple objectives
         ("Design a caching system", True),
-
         # Should not escalate
         ("Fix typo in README.md", False),
         ("Format code in src/main.py", False),
@@ -235,10 +341,18 @@ if __name__ == "__main__":
     ]
 
     print("Running routing tests...\n")
+    passed = 0
+    failed = 0
+
     for request, should_escalate_expected in test_cases:
         result = should_escalate(request)
         escalated = result.decision == RouterDecision.ESCALATE_TO_SONNET
         status = "✅" if escalated == should_escalate_expected else "❌"
+
+        if escalated == should_escalate_expected:
+            passed += 1
+        else:
+            failed += 1
 
         print(f"{status} {request}")
         print(f"   Decision: {result.decision.value}")
@@ -246,3 +360,16 @@ if __name__ == "__main__":
         print(f"   Agent: {result.agent}")
         print(f"   Confidence: {result.confidence:.2f}")
         print()
+
+    print(f"\n{'='*50}")
+    print(f"Tests: {passed} passed, {failed} failed")
+    if failed > 0:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    # Check if running tests or CLI mode
+    if "--test" in sys.argv:
+        run_tests()
+    else:
+        run_cli()
