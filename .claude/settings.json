@@ -1,16 +1,3 @@
 {
-  "hooks": {
-    "SubagentStart": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "./.claude/hooks/log-subagent-start.sh",
-            "timeout": 5
-          }
-        ]
-      }
-    ]
-  }
+  "$schema": "https://claude.ai/schemas/claude-code-settings.json"
 }
