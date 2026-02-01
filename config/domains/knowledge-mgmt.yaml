@@ -1,0 +1,126 @@
+# Knowledge Management Domain Configuration
+# For organizing documentation, notes, and research materials
+
+domain: knowledge-mgmt
+
+# Workflow definitions
+workflows:
+  content_organization:
+    phases:
+      - "analyze"
+      - "categorize"
+      - "restructure"
+      - "verify"
+    quality_gates:
+      - "link_check"
+      - "consistency_check"
+    parallelism: "high"  # 3-4 concurrent for independent sections
+
+  search_and_discovery:
+    phases:
+      - "search"
+      - "filter"
+      - "summarize"
+    quality_gates:
+      - "relevance_check"
+    parallelism: "high"  # Parallel search across multiple sources
+
+  note_taking:
+    phases:
+      - "capture"
+      - "process"
+      - "link"
+      - "tag"
+    quality_gates:
+      - "link_check"
+    parallelism: "low"  # 1-2 for focused capture
+
+  knowledge_synthesis:
+    phases:
+      - "gather"
+      - "analyze"
+      - "synthesize"
+      - "document"
+    quality_gates:
+      - "citation_check"
+      - "consistency_check"
+    parallelism: "sequential"  # Deep synthesis needs focus
+
+  documentation_update:
+    phases:
+      - "identify_gaps"
+      - "update"
+      - "verify"
+    quality_gates:
+      - "link_check"
+      - "completeness_check"
+    parallelism: "medium"  # 2-3 concurrent updates
+
+# Default agent selection by task type
+default_agents:
+  organization: "sonnet-general"     # Structural organization
+  search: "haiku-general"            # Simple search operations
+  summarization: "sonnet-general"    # Content summarization
+  synthesis: "opus-general"          # Deep knowledge synthesis
+  tagging: "haiku-general"           # Mechanical tagging
+  linking: "sonnet-general"          # Relationship discovery
+
+# Context management strategy
+context_strategy:
+  large_files: "split_into_sections"
+  references: "lazy_load_links"
+  tags: "index_based"
+  metadata: "always_load"
+
+# File size thresholds
+thresholds:
+  large_file_kb: 100
+  max_sections_in_context: 5
+  max_references: 30
+
+# Quality enforcement
+quality_requirements:
+  link_validation: true
+  tag_consistency: true
+  metadata_completeness: false  # Optional
+
+# Domain-specific file patterns
+file_patterns:
+  notes: "*.md"
+  documentation: "*.md"
+  indexes: "*index.md"
+  metadata: "*.yaml"
+
+# Organization principles
+organization:
+  hierarchy: "topic_based"
+  linking_strategy: "bidirectional"
+  tagging_taxonomy: "hierarchical"
+  discoverability: "high_priority"
+
+# Search optimization
+search:
+  index_all_files: true
+  semantic_search: true
+  fuzzy_matching: true
+  result_ranking: "relevance"
+
+# Risk assessment
+risk_patterns:
+  high_risk:
+    - "delete.*index"
+    - "rm.*metadata"
+  medium_risk:
+    - "reorganize.*"
+    - "merge.*"
+  low_risk:
+    - "add.*tag"
+    - "update.*link"
+
+# Quota allocation (percentage of daily quota)
+quota_allocation:
+  synthesis: 35
+  organization: 30
+  search: 20
+  updates: 10
+  other: 5

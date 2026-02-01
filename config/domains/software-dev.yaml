@@ -1,0 +1,136 @@
+# Software Development Domain Configuration
+# For coding projects with test-first development and CI/CD integration
+
+domain: software-dev
+
+# Workflow definitions
+workflows:
+  feature_development:
+    phases:
+      - "design"
+      - "test_first"
+      - "implement"
+      - "verify"
+      - "integrate"
+    quality_gates:
+      - "test_pass"
+      - "type_check"
+      - "lint_check"
+      - "build_check"
+    parallelism: "medium"  # 2-3 concurrent features
+
+  bug_fix:
+    phases:
+      - "reproduce"
+      - "diagnose"
+      - "fix"
+      - "test"
+      - "verify"
+    quality_gates:
+      - "test_pass"
+      - "regression_check"
+    parallelism: "high"  # 3-4 concurrent fixes for independent bugs
+
+  refactoring:
+    phases:
+      - "analyze"
+      - "plan"
+      - "refactor"
+      - "verify"
+    quality_gates:
+      - "test_pass"
+      - "type_check"
+      - "no_behavior_change"
+    parallelism: "sequential"  # Refactoring needs careful focus
+
+  code_review:
+    phases:
+      - "read"
+      - "analyze"
+      - "suggest"
+    quality_gates:
+      - "style_check"
+      - "security_scan"
+    parallelism: "high"  # 3-4 concurrent reviews
+
+  testing:
+    phases:
+      - "design"
+      - "implement"
+      - "run"
+      - "validate"
+    quality_gates:
+      - "coverage_check"
+      - "test_pass"
+    parallelism: "high"  # Parallel test writing
+
+# Default agent selection by task type
+default_agents:
+  syntax: "haiku-general"        # Simple syntax fixes
+  formatting: "haiku-general"    # Code formatting
+  testing: "sonnet-general"      # Test design and implementation
+  refactoring: "sonnet-general"  # Structural changes
+  architecture: "opus-general"   # System design
+  debugging: "sonnet-general"    # Bug diagnosis
+  review: "sonnet-general"       # Code review
+
+# Context management strategy
+context_strategy:
+  large_files: "split_into_functions"
+  imports: "lazy_load_dependencies"
+  test_files: "load_with_source"
+  documentation: "load_on_demand"
+
+# File size thresholds
+thresholds:
+  large_file_kb: 50
+  max_functions_in_context: 10
+  max_imports: 20
+
+# Quality enforcement
+quality_requirements:
+  test_coverage: true
+  type_checking: true
+  linting: true
+  security_scanning: false  # Optional, project-dependent
+
+# Domain-specific file patterns
+file_patterns:
+  source_code: "*.py"
+  tests: "test_*.py"
+  configuration: "*.yaml"
+  documentation: "*.md"
+
+# Test-first development enforcement
+test_first:
+  enabled: true
+  require_test_before_implementation: true
+  min_coverage_percent: 80
+
+# CI/CD integration
+ci_cd:
+  pre_commit_hooks: true
+  auto_format: true
+  auto_lint: true
+  run_tests_before_commit: true
+
+# Risk assessment
+risk_patterns:
+  high_risk:
+    - "delete.*\\.py$"
+    - "rm -rf"
+    - "drop.*database"
+  medium_risk:
+    - "refactor.*"
+    - "rename.*"
+  low_risk:
+    - "fix.*typo"
+    - "format.*"
+
+# Quota allocation (percentage of daily quota)
+quota_allocation:
+  feature_development: 35
+  refactoring: 25
+  testing: 20
+  bug_fixes: 15
+  other: 5

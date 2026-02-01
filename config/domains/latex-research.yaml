@@ -1,0 +1,139 @@
+# LaTeX Research Domain Configuration
+# For academic/research writing with LaTeX, bibliography management, and formalization
+
+domain: latex-research
+
+# Workflow definitions with phases, quality gates, and parallelism settings
+workflows:
+  literature_integration:
+    phases:
+      - "search"
+      - "assess"
+      - "integrate"
+      - "verify"
+    quality_gates:
+      - "build_check"
+      - "citation_verify"
+      - "link_check"
+    parallelism: "low"  # 1-2 concurrent tasks for careful integration
+
+  formalization:
+    phases:
+      - "analyze"
+      - "model"
+      - "verify"
+      - "document"
+    quality_gates:
+      - "math_verify"
+      - "logic_audit"
+      - "build_check"
+    parallelism: "sequential"  # Deep reasoning requires focus
+
+  bulk_editing:
+    phases:
+      - "propose"
+      - "review"
+      - "apply"
+    quality_gates:
+      - "build_check"
+      - "diff_review"
+    parallelism: "high"  # 3-4 concurrent for mechanical changes
+
+  section_review:
+    phases:
+      - "read"
+      - "analyze"
+      - "suggest"
+      - "verify"
+    quality_gates:
+      - "build_check"
+      - "style_check"
+    parallelism: "medium"  # 2-3 concurrent
+
+  tikz_illustration:
+    phases:
+      - "design"
+      - "implement"
+      - "validate"
+      - "integrate"
+    quality_gates:
+      - "tikz_validate"
+      - "build_check"
+    parallelism: "sequential"  # Visual design needs focus
+
+# Default agent selection by task type
+default_agents:
+  syntax: "haiku-general"           # Mechanical syntax fixes
+  formatting: "haiku-general"       # Formatting corrections
+  integration: "sonnet + specialized"  # Literature integration needs reasoning
+  verification: "opus (math/logic)"    # Mathematical/logical verification
+  illustration: "sonnet + specialized" # TikZ diagram creation
+  review: "sonnet-general"             # Content review
+  formalization: "opus-general"        # Deep modeling work
+
+# Context management strategy
+context_strategy:
+  large_files: "split_into_chapters"
+  citations: "lazy_load_bibtex"
+  cross_references: "index_based"
+  tikz_diagrams: "load_on_demand"
+  appendices: "load_when_referenced"
+
+# File size thresholds
+thresholds:
+  large_file_kb: 100
+  max_chapters_in_context: 3
+  max_bibliography_entries: 50
+
+# Quality enforcement
+quality_requirements:
+  build_verification: true
+  citation_integrity: true
+  link_validation: true
+  style_consistency: true
+
+# Domain-specific file patterns
+file_patterns:
+  main_document: "*.tex"
+  bibliography: "*.bib"
+  diagrams: "*.tikz"
+  data: "*.csv"
+  configuration: "*.yaml"
+
+# Specialized agents available in this domain
+specialized_agents:
+  - "syntax-fixer"
+  - "formatting-fixer"
+  - "dictionary-manager"
+  - "template-advisor"
+  - "chapter-integrator"
+  - "protocol-linker"
+  - "content-reviewer"
+  - "style-naturalizer"
+  - "literature-integrator"
+  - "scientific-insight-generator"
+  - "math-verifier"
+  - "logic-auditor"
+  - "tikz-illustrator"
+  - "tikz-validator"
+
+# Risk assessment
+risk_patterns:
+  high_risk:
+    - "delete.*\\.tex$"
+    - "rm.*\\.bib$"
+    - "overwrite.*main"
+  medium_risk:
+    - "bulk.*edit"
+    - "replace.*all"
+  low_risk:
+    - "fix.*syntax"
+    - "format.*"
+
+# Quota allocation (percentage of daily quota)
+quota_allocation:
+  formalization: 40  # Deep reasoning work gets most quota
+  literature: 25
+  review: 20
+  syntax: 10
+  other: 5
