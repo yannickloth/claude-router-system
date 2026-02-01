@@ -1,0 +1,18 @@
+{
+  "name": "yannickloth-claude-router-system",
+  "owner": {
+    "name": "Yannick Loth"
+  },
+  "metadata": {
+    "description": "Intelligent routing system for Claude Code with IVP-compliant architecture",
+    "homepage": "https://github.com/yannickloth/claude-router-system"
+  },
+  "plugins": [
+    {
+      "name": "claude-router-system",
+      "version": "1.0.0",
+      "source": ".",
+      "description": "Intelligent routing system for Claude Code with IVP-compliant architecture. Routes all requests through a central router that delegates to specialized or general agents based on task complexity, risk assessment, and cost optimization."
+    }
+  ]
+}
