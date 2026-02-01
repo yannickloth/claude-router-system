@@ -242,12 +242,19 @@ ESCALATE:
 **Directory structure:**
 
 - `~/.claude/infolead-router/state/` - Persistent state (work queues, session data)
-- `~/.claude/infolead-router/logs/` - Log files with rotation
 - `~/.claude/infolead-router/cache/` - Cached results (safe to delete)
 - `~/.claude/infolead-router/memory/` - Cross-session memory
+- `~/.claude/infolead-router/metrics/` - Aggregated metrics (daily JSONL files)
 - `~/.claude/infolead-router/rules/` - Domain-specific rules
 - `~/.claude/infolead-router/domains/` - Domain configurations
+- `<project>/.claude/logs/` - Project-specific logs (routing decisions, agent activity)
 - `<project>/.claude/` - Project-specific state
+
+**Rationale for per-project logs:**
+- Logs stay with the project they belong to
+- No cross-project leakage
+- Can be version-controlled or gitignored per project
+- Aggregation is opt-in (tools can combine logs if needed)
 
 **Acceptance Criteria:**
 

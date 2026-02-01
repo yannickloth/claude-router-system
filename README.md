@@ -421,6 +421,48 @@ Reason: Requires judgment for ambiguous file patterns
 
 Check the routing explanation to understand the decision.
 
+### "Agent doesn't know its tools"
+
+General agents now include explicit tool lists in their prompts. If you encounter this:
+
+- Ensure you have the latest agent definitions
+- Check that the agent file includes the "Available Tools" section
+
+### "Agent can't spawn subagents"
+
+**This is by design.** General agents (`haiku-general`, `sonnet-general`, `opus-general`) are execution endpoints—they execute tasks themselves and do not further delegate.
+
+**Workaround for multi-step workflows:** The main session coordinates:
+
+```text
+1. Main session spawns agent for Phase 1
+2. Collect results
+3. Main session spawns agent for Phase 2
+4. Repeat as needed
+```
+
+See "Multi-Step Workflow Coordination" in `EXAMPLE.claude.md` for detailed patterns.
+
+---
+
+## Known Limitations
+
+### General Agents Are Endpoints
+
+General agents execute tasks directly. They cannot spawn other agents for sub-delegation. This prevents routing chains but means the main session must coordinate multi-phase workflows.
+
+### Model Parameter Behavior
+
+When using the Task tool:
+
+- Agent definitions specify a default `model:` in frontmatter
+- The Task tool's `model:` parameter can override this
+- Best practice: let agent definitions control their model
+
+### Namespace Resolution
+
+Both short names (`haiku-general`) and fully qualified names (`claude-router-system:haiku-general`) work. Use short names unless you need to disambiguate between plugins with identical agent names.
+
 ---
 
 ## Contributing

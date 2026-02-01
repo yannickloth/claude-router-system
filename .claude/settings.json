@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SubagentStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./.claude/hooks/log-subagent-start.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

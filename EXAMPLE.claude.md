@@ -140,6 +140,56 @@ These files directly affect system behavior and routing decisions. Any modificat
 
 ---
 
+## Multi-Step Workflow Coordination
+
+**Design constraint:** General agents are execution endpoints—they do NOT spawn other agents for sub-routing.
+
+### Who Coordinates Multi-Step Workflows?
+
+**The main session coordinates.** This is valid behavior, not a routing violation.
+
+```text
+Routing (router decides):     User request → router → agent
+Coordination (main session):  Phase 1 agent → results → Phase 2 agent → results → ...
+```
+
+**Coordination is distinct from execution:**
+
+- **Execution** = performing the actual task (agents do this)
+- **Coordination** = deciding what happens next based on results (main session does this)
+
+### Coordination Pattern
+
+For multi-phase workflows:
+
+```text
+1. Main session spawns agent(s) for Phase 1
+2. Wait for completion, collect results
+3. Triage/analyze results (main session or dedicated agent)
+4. Based on triage, spawn agent(s) for Phase 2
+5. Repeat until workflow complete
+```
+
+### Example: Research Integration Workflow
+
+```text
+Phase 1: Main session spawns 3 haiku-general agents in parallel (search tasks)
+         ↓
+         Wait for all to complete
+         ↓
+Phase 2: Main session spawns sonnet-general (triage search results)
+         ↓
+         Based on triage: "2 topics need Opus, 1 needs Sonnet"
+         ↓
+Phase 3: Main session spawns appropriate agents for each topic
+         ↓
+         Collect and verify all outputs
+```
+
+**Key insight:** The main session orchestrates the workflow but doesn't execute tasks itself.
+
+---
+
 ## Agent Execution Visibility
 
 **User priority: Know what's going on during agent execution.**
@@ -161,8 +211,36 @@ These files directly affect system behavior and routing decisions. Any modificat
 - **Anything requiring judgment calls**: So user can see reasoning and course-correct
 - **Tasks where you're learning**: User wants to understand the process, not just get results
 
-### Key principle:
+### Key principle
+
 **Visibility > execution mode.** Background doesn't mean "don't tell the user what's happening."
+
+### Background Task Monitoring Patterns
+
+**For spawn → wait → triage → continue workflows:**
+
+| Situation | Approach |
+| --- | --- |
+| Need results before proceeding | Use `TaskOutput` with `block: true` (waits for completion) |
+| Check progress without blocking | Use `TaskOutput` with `block: false` |
+| View live output | Use `Read` on the output file, or `tail -f` via Bash |
+| Multiple parallel tasks | Spawn all, then `TaskOutput` each (they run concurrently) |
+
+**Example: Parallel search with triage**
+
+```text
+1. Spawn 3 background agents (search tasks)
+2. TaskOutput task_id_1 block: true   # Wait for first
+3. TaskOutput task_id_2 block: true   # Wait for second
+4. TaskOutput task_id_3 block: true   # Wait for third
+5. Now triage all results and decide next phase
+```
+
+**When to check output files directly:**
+
+- You need partial results before task completes
+- You want to monitor progress in real-time
+- Task is very long-running and you want periodic updates
 
 ---
 
@@ -283,6 +361,43 @@ Re-routing to [appropriate-agent] with explicit output requirements.
 | `haiku-general` | Haiku | Mechanical tasks, no judgment needed, explicit paths |
 | `sonnet-general` | Sonnet | Default for reasoning, analysis, judgment calls |
 | `opus-general` | Opus | Complex reasoning, proofs, high-stakes decisions |
+
+### Agent Naming Convention
+
+**Use short names for all agents.** The namespace prefix is optional and resolved automatically.
+
+| Context | Use | Example |
+| --- | --- | --- |
+| Project agents | Short name | `test-runner`, `syntax-fixer` |
+| Plugin agents | Short name | `haiku-general`, `router` |
+| Disambiguation (rare) | Full namespace | `claude-router-system:haiku-general` |
+
+**When is namespace needed?**
+
+Only when two plugins define agents with the same name (rare). In practice, always use short names.
+
+```text
+✅ subagent_type: "haiku-general"
+✅ subagent_type: "router"
+✅ subagent_type: "my-project-agent"
+⚠️ subagent_type: "claude-router-system:haiku-general"  # Only if disambiguation needed
+```
+
+### Model Parameter Behavior
+
+**When spawning agents via Task tool:**
+
+- The `model:` field in agent frontmatter determines the default model
+- The `model:` parameter in Task tool call can override the agent's default
+- If both are specified, the Task parameter takes precedence
+
+**Best practice:** Let agent definitions control their model. Only use the Task `model:` parameter when you need to override for a specific reason.
+
+```text
+✅ subagent_type: "haiku-general"              # Uses haiku (from agent definition)
+✅ subagent_type: "sonnet-general"             # Uses sonnet (from agent definition)
+⚠️ subagent_type: "haiku-general", model: "sonnet"  # Override - use only when intentional
+```
 
 ---
 
