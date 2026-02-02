@@ -1,6 +1,6 @@
 #!/bin/bash
 # Log Subagent Stop Hook
-# Logs agent completion with duration and writes metrics for cost analysis
+# Logs agent completion with duration, description, and writes metrics for cost analysis
 #
 # Trigger: SubagentStop (receives JSON on stdin)
 # Change Driver: MONITORING_REQUIREMENTS
@@ -10,6 +10,7 @@
 #   - agent_type: type of agent
 #   - agent_id: unique identifier for this agent instance
 #   - exit_status: how the agent completed
+#   - transcript_path: path to transcript file
 
 set -euo pipefail
 
@@ -21,6 +22,7 @@ CWD=$(jq -r '.cwd // "."' <<< "$INPUT")
 AGENT_TYPE=$(jq -r '.agent_type // "unknown"' <<< "$INPUT")
 AGENT_ID=$(jq -r '.agent_id // "no-id"' <<< "$INPUT")
 EXIT_STATUS=$(jq -r '.exit_status // "unknown"' <<< "$INPUT")
+TRANSCRIPT=$(jq -r '.transcript_path // ""' <<< "$INPUT")
 
 # Setup paths
 LOGS_DIR="$CWD/.claude/logs"
@@ -30,24 +32,32 @@ TODAY=$(date +%Y-%m-%d)
 METRICS_FILE="$METRICS_DIR/${TODAY}.jsonl"
 PROJECT=$(basename "$CWD")
 TIMESTAMP=$(date -Iseconds)
+SHORT_AGENT_ID="${AGENT_ID:0:8}"
 
 # Ensure directories exist
 mkdir -p "$LOGS_DIR" "$METRICS_DIR"
 
+# Get task description from transcript - available now that task completed
+# Transcript format: JSONL with message.content[] containing tool_use entries
+DESCRIPTION=""
+if [[ -n "$TRANSCRIPT" && -f "$TRANSCRIPT" ]]; then
+    DESCRIPTION=$(timeout 2s jq -rs '
+        [.[] | .message?.content? // [] | .[] | select(.type == "tool_use" and .name == "Task") | .input.description // empty]
+        | last // ""
+    ' "$TRANSCRIPT" 2>/dev/null | head -c 80) || true
+fi
+[[ -z "$DESCRIPTION" ]] && DESCRIPTION="no description"
+
 # Calculate duration by finding the matching START entry
-# Log format: TIMESTAMP | PROJECT | AGENT_TYPE | AGENT_ID | START | DESCRIPTION
+# Log format: TIMESTAMP | PROJECT | AGENT_TYPE | AGENT_ID | START
 DURATION_MS=""
 DURATION_SEC=""
 
 if [[ -f "$ROUTING_LOG" ]]; then
-    # Escape agent_id for grep (handle special regex chars: [ ] \ . * ^ $ ( ) + ? { | )
-    # shellcheck disable=SC2016 # \& is sed replacement syntax, not shell expansion
-    ESCAPED_ID=$(printf '%s\n' "$AGENT_ID" | sed 's/[][\\.*^$()+?{|]/\\&/g')
-
     # Use flock to safely read the log file
     START_LINE=$(
         flock -s 200
-        grep " | $ESCAPED_ID | START |" "$ROUTING_LOG" 2>/dev/null | tail -1 || true
+        grep " | $SHORT_AGENT_ID | START" "$ROUTING_LOG" 2>/dev/null | tail -1 || true
     ) 200>"$ROUTING_LOG.lock"
 
     if [[ -n "$START_LINE" ]]; then
@@ -98,8 +108,8 @@ determine_model_tier() {
 
 MODEL_TIER=$(determine_model_tier "$AGENT_TYPE")
 
-# Log format: TIMESTAMP | PROJECT | AGENT_TYPE | AGENT_ID | STOP | DURATION | EXIT_STATUS
-LOG_ENTRY="$TIMESTAMP | $PROJECT | $AGENT_TYPE | $AGENT_ID | STOP | ${DURATION_SEC:-?}s | $EXIT_STATUS"
+# Log format: TIMESTAMP | PROJECT | AGENT_TYPE | AGENT_ID | STOP | DURATION | DESCRIPTION
+LOG_ENTRY="$TIMESTAMP | $PROJECT | $AGENT_TYPE | $SHORT_AGENT_ID | STOP | ${DURATION_SEC:-?}s | $DESCRIPTION"
 
 # Atomic append to project log using flock
 (
@@ -115,6 +125,7 @@ METRICS_JSON=$(jq -c -n \
     --arg agent_id "$AGENT_ID" \
     --arg model_tier "$MODEL_TIER" \
     --arg exit_status "$EXIT_STATUS" \
+    --arg description "$DESCRIPTION" \
     --argjson duration_ms "${DURATION_MS:-null}" \
     --argjson duration_sec "${DURATION_SEC:-null}" \
     '{
@@ -125,6 +136,7 @@ METRICS_JSON=$(jq -c -n \
         agent_id: $agent_id,
         model_tier: $model_tier,
         exit_status: $exit_status,
+        description: $description,
         duration_ms: $duration_ms,
         duration_sec: $duration_sec
     }')
@@ -133,13 +145,13 @@ METRICS_JSON=$(jq -c -n \
 (
     flock -x 200
     echo "$METRICS_JSON" >> "$METRICS_FILE"
-) 200>"$METRICS_FILE.lock"
+) 200>"$ROUTING_LOG.lock"
 
 # Output to stderr for real-time visibility
 if [[ -n "${DURATION_SEC:-}" ]]; then
-    echo "[routing] ← $AGENT_TYPE (${DURATION_SEC}s) [$EXIT_STATUS]" >&2
+    echo "[routing] ← $AGENT_TYPE (${DURATION_SEC}s): $DESCRIPTION" >&2
 else
-    echo "[routing] ← $AGENT_TYPE [$EXIT_STATUS]" >&2
+    echo "[routing] ← $AGENT_TYPE: $DESCRIPTION" >&2
 fi
 
 exit 0
