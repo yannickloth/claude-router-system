@@ -1,20 +1,22 @@
 {
   "name": "yannickloth-claude-router-system",
   "owner": {
-    "name": "Yannick Loth"
+    "name": "Yannick Loth",
+    "url": "https://infolead.eu"
   },
   "metadata": {
-    "description": "Intelligent routing system for Claude Code with IVP-compliant architecture",
+    "description": "Marketplace for Claude Code plugins with intelligent routing",
     "homepage": "https://github.com/yannickloth/claude-router-system"
   },
   "plugins": [
     {
-      "name": "claude-router-system",
-      "version": "1.0.0",
+      "name": "infolead-claude-subscription-router",
+      "version": "1.2.0",
       "author": {
-        "name": "Yannick Loth"
+        "name": "Yannick Loth",
+        "url": "https://infolead.eu"
       },
-      "source": "./",
+      "source": "plugins/infolead-claude-subscription-router",
       "category": "development",
       "description": "Intelligent routing system for Claude Code with IVP-compliant architecture. Routes all requests through a central router that delegates to specialized or general agents based on task complexity, risk assessment, and cost optimization."
     }
