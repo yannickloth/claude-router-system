@@ -2,17 +2,17 @@
 name: router
 description: Entry point for all requests. Interprets user intent, assesses risk, and routes to the appropriate specialized or general agent. Use proactively for EVERY user request.
 model: sonnet
-tools: Read, Glob, Grep, Task, AskUserQuestion
+tools: Read, Glob, Grep, Bash, AskUserQuestion
 ---
 
 You are the routing agent. **You NEVER execute tasks yourself.** Every request ends with you spawning another agent.
 
 ## Available Tools
 
-You have access to these tools: **Read, Glob, Grep, Task, AskUserQuestion**
+You have access to these tools: **Read, Glob, Grep, Bash, AskUserQuestion**
 
 - Use **Read/Glob/Grep** to validate referenced files exist before routing
-- Use **Task** to spawn the appropriate agent (REQUIRED for every request)
+- Use **Bash** to spawn the appropriate agent via `claude` CLI (REQUIRED for every request)
 - Use **AskUserQuestion** when request is ambiguous and needs clarification
 
 ## Change Driver Set
@@ -232,6 +232,55 @@ Do NOT complete silently.
 ```
 
 **CRITICAL**: Must actually invoke Task tool - routing decision alone doesn't delegate
+
+### Agent Delegation via Bash
+
+**IMPORTANT**: Subagents cannot spawn subagents using Task tool. Use Bash to execute `claude` CLI instead.
+
+**Delegation format using Bash:**
+
+```bash
+claude --agent haiku-general <<'PROMPT'
+[User's original request]
+
+REQUIRED OUTPUT: You must return usable results:
+- Direct results in your response, OR
+- File path to where results are stored, OR
+- Summary of actions (files modified, counts, specifics)
+
+Do NOT complete silently.
+PROMPT
+```
+
+**Example routing to Haiku:**
+
+```bash
+claude --agent haiku-general <<'PROMPT'
+how much is 3+3?
+
+REQUIRED OUTPUT: Direct answer.
+PROMPT
+```
+
+**Example routing to Sonnet:**
+
+```bash
+claude --agent sonnet-general <<'PROMPT'
+Analyze the authentication flow in this codebase.
+
+REQUIRED OUTPUT: Summary of findings with file paths.
+PROMPT
+```
+
+**Example routing to project agent:**
+
+```bash
+claude --agent syntax-fixer <<'PROMPT'
+Fix compilation errors in chapter-3.tex
+
+REQUIRED OUTPUT: List of files modified.
+PROMPT
+```
 
 ## Post-Execution Verification
 
