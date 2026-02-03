@@ -1,8 +1,7 @@
 {
   "name": "yannickloth-claude-router-system",
   "owner": {
-    "name": "Yannick Loth",
-    "url": "https://infolead.eu"
+    "name": "Yannick Loth"
   },
   "metadata": {
     "description": "Marketplace for Claude Code plugins with intelligent routing",
@@ -13,8 +12,7 @@
       "name": "infolead-claude-subscription-router",
       "version": "1.2.0",
       "author": {
-        "name": "Yannick Loth",
-        "url": "https://infolead.eu"
+        "name": "Yannick Loth"
       },
       "source": "plugins/infolead-claude-subscription-router",
       "category": "development",
