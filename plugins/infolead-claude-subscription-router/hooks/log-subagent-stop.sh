@@ -33,7 +33,7 @@ TRANSCRIPT=$(jq -r '.transcript_path // ""' <<< "$INPUT")
 # Setup paths
 LOGS_DIR="$CWD/.claude/logs"
 ROUTING_LOG="$LOGS_DIR/routing.log"
-METRICS_DIR="${HOME}/.claude/infolead-router/metrics"
+METRICS_DIR="${HOME}/.claude/infolead-claude-subscription-router/metrics"
 TODAY=$(date +%Y-%m-%d)
 METRICS_FILE="$METRICS_DIR/${TODAY}.jsonl"
 PROJECT=$(basename "$CWD")

@@ -13,20 +13,20 @@ set -euo pipefail
 USER_REQUEST=$(cat)
 
 # Determine router directory
-# Use plugin root, fall back to global installation
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
-if [ -n "$PLUGIN_ROOT" ] && [ -f "$PLUGIN_ROOT/implementation/routing_core.py" ]; then
-    ROUTER_DIR="$PLUGIN_ROOT"
-elif [ -f "$HOME/.claude/infolead-router/implementation/routing_core.py" ]; then
-    ROUTER_DIR="$HOME/.claude/infolead-router"
-else
-    # Router system not installed - pass through silently
+# Use plugin root if set, otherwise derive from script location
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$0")")}"
+
+# Verify routing script exists
+if [ ! -f "$PLUGIN_ROOT/implementation/routing_core.py" ]; then
+    # Router system not properly installed - pass through silently
     exit 0
 fi
 
+ROUTER_DIR="$PLUGIN_ROOT"
+
 ROUTING_SCRIPT="$ROUTER_DIR/implementation/routing_core.py"
-METRICS_DIR="${HOME}/.claude/infolead-router/metrics"
-LOGS_DIR="${HOME}/.claude/infolead-router/logs"
+METRICS_DIR="${HOME}/.claude/infolead-claude-subscription-router/metrics"
+LOGS_DIR="${HOME}/.claude/infolead-claude-subscription-router/logs"
 TODAY=$(date +%Y-%m-%d)
 TIMESTAMP=$(date -Iseconds)
 REQUEST_HASH=$(echo -n "$USER_REQUEST" | sha256sum | cut -d' ' -f1 | head -c16)

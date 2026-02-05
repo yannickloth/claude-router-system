@@ -14,7 +14,7 @@ if [ "$CURRENT_HOUR" -ne 21 ]; then
     exit 0
 fi
 
-STATE_DIR="$HOME/.claude/infolead-router/state"
+STATE_DIR="$HOME/.claude/infolead-claude-subscription-router/state"
 QUEUE_FILE="$STATE_DIR/temporal-work-queue.json"
 
 # Check if queue file exists

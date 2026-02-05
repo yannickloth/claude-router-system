@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-MEMORY_DIR="$HOME/.claude/infolead-router/memory"
+MEMORY_DIR="$HOME/.claude/infolead-claude-subscription-router/memory"
 STATE_FILE="$MEMORY_DIR/session-state.json"
 
 # Check if session state exists

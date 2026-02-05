@@ -14,7 +14,7 @@ if [ "$CURRENT_HOUR" -lt 6 ] || [ "$CURRENT_HOUR" -ge 12 ]; then
 fi
 
 # Check if already shown today
-MARKER_DIR="$HOME/.claude/infolead-router/state"
+MARKER_DIR="$HOME/.claude/infolead-claude-subscription-router/state"
 MARKER_FILE="$MARKER_DIR/.morning-briefing-$(date +%Y%m%d)"
 mkdir -p "$MARKER_DIR"
 
@@ -27,8 +27,8 @@ if ! command -v jq &> /dev/null; then
     exit 0
 fi
 
-MEMORY_DIR="$HOME/.claude/infolead-router/memory"
-LOGS_DIR="$HOME/.claude/infolead-router/logs"
+MEMORY_DIR="$HOME/.claude/infolead-claude-subscription-router/memory"
+LOGS_DIR="$HOME/.claude/infolead-claude-subscription-router/logs"
 WORK_LOG="$MEMORY_DIR/completed-work.json"
 SESSION_STATE="$MEMORY_DIR/session-state.json"
 

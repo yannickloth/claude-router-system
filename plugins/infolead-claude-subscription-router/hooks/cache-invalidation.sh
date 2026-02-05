@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-CACHE_DIR="$HOME/.claude/infolead-router/cache"
+CACHE_DIR="$HOME/.claude/infolead-claude-subscription-router/cache"
 
 # Ensure cache directory exists
 mkdir -p "$CACHE_DIR"

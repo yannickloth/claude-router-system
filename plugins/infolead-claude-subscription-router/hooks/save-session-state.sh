@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-STATE_DIR="$HOME/.claude/infolead-router/state"
+STATE_DIR="$HOME/.claude/infolead-claude-subscription-router/state"
 STATE_FILE="$STATE_DIR/session-state.json"
 
 # Ensure state directory exists
@@ -43,7 +43,7 @@ else
 fi
 
 # Archive session log if it exists
-LOGS_DIR="$HOME/.claude/infolead-router/logs"
+LOGS_DIR="$HOME/.claude/infolead-claude-subscription-router/logs"
 ROUTING_LOG="$LOGS_DIR/routing.log"
 ARCHIVE_DIR="$LOGS_DIR/archive"
 
