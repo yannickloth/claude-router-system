@@ -1,0 +1,14 @@
+# Router Plugin Dependencies
+# Install with: pip install -r requirements.txt
+
+# Required for parsing agent YAML frontmatter
+PyYAML>=6.0
+
+# Optional but recommended for running tests
+pytest>=7.0.0
+pytest-cov>=4.0.0  # For coverage reporting
+
+# Development dependencies (optional)
+# black>=23.0.0  # Code formatting
+# mypy>=1.0.0    # Type checking
+# flake8>=6.0.0  # Linting
