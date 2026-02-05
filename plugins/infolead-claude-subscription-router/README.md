@@ -55,6 +55,143 @@ Built on the **Independent Variation Principle** (IVP): separate concerns with d
 
 ---
 
+## 🔍 Visibility & Monitoring (NEW in v1.3.0)
+
+### Real-Time Routing Recommendations
+
+Every request now displays routing analysis **before** main Claude processes it:
+
+```
+[ROUTER] Recommendation: haiku-general (confidence: 0.95)
+[ROUTER] Reason: High-confidence agent match
+```
+
+**What you see:**
+
+- ✅ **Agent recommendation**: Which agent the pre-router suggests
+- ✅ **Confidence level**: How certain the recommendation is (0.0-1.0)
+- ✅ **Reasoning**: Why this agent was chosen
+
+**What happens:**
+1. Pre-router analyzes your request using mechanical escalation logic
+2. Recommendation is displayed to you (stderr)
+3. Recommendation is injected into main Claude's context
+4. Main Claude makes final decision with full context
+5. Both recommendation and actual decision are logged to metrics
+
+### Advisory System
+
+**Important**: Recommendations are **advisory, not mandatory**.
+
+Main Claude sees the pre-router's recommendation as input but makes the final decision based on:
+
+- Pre-router's recommendation
+- Conversation history
+- Project context
+- Your specific requirements
+
+**Claude can**:
+- ✅ Follow the recommendation
+- ⚠️  Override (upgrade/downgrade tier)
+- ❓ Escalate (ask for clarification)
+
+**You always see both** the recommendation and Claude's decision.
+
+### Metrics Collection
+
+All routing decisions are tracked to:
+```
+~/.claude/infolead-router/metrics/YYYY-MM-DD.jsonl
+```
+
+**What's logged:**
+
+- Timestamp of request
+- Request hash (for correlation)
+- Recommended agent
+- Confidence level
+- Reasoning
+- Full analysis
+
+**Performance:**
+- Average latency: ~108ms per request
+- Atomic writes: Safe for concurrent requests
+- Daily rotation: New file each day
+
+### Visibility Benefits
+
+**For you:**
+
+- See what the router is thinking
+- Verify system is working correctly
+- Build trust through transparency
+- Understand routing patterns
+
+**For main Claude:**
+- Advisory input for routing decisions
+- Context for explaining choices
+- Override when additional context changes assessment
+
+**For the system:**
+
+- Metrics enable continuous improvement
+- Track recommendation accuracy
+- Identify patterns for optimization
+- Auditable trail of all decisions
+
+### Example: Visible Routing Flow
+
+```
+User: "Fix typo in README.md line 42"
+     ↓
+[Pre-Router analyzes automatically]
+     ↓
+YOU SEE:
+  [ROUTER] Recommendation: haiku-general (confidence: 0.98)
+  [ROUTER] Reason: Mechanical syntax fix with explicit file path
+     ↓
+CLAUDE SEES:
+  <routing-recommendation>
+    {"decision":"direct","agent":"haiku-general","confidence":0.98}
+  </routing-recommendation>
+     ↓
+CLAUDE RESPONDS:
+  "The pre-router correctly identified this as a mechanical task.
+   I'll delegate to haiku-general."
+     ↓
+METRICS LOG:
+  {"timestamp":"2026-02-05T17:00:00+01:00",
+   "recommendation":{"agent":"haiku-general","confidence":0.98}}
+```
+
+### Testing Visibility
+
+```bash
+# From plugin directory
+cd plugins/infolead-claude-subscription-router
+
+# Test routing recommendations
+echo "Fix typo in README.md" | python3 implementation/routing_core.py --json
+
+# Test full hook (with visibility)
+export CLAUDE_PLUGIN_ROOT="$PWD"
+echo "Fix typo in README.md" | bash hooks/user-prompt-submit.sh
+
+# Check metrics
+cat ~/.claude/infolead-router/metrics/$(date +%Y-%m-%d).jsonl | tail -5
+
+# Run comprehensive tests
+bash tests/test-routing-visibility.sh
+```
+
+### Documentation
+
+- **[OPTION-D-IMPLEMENTATION.md](docs/OPTION-D-IMPLEMENTATION.md)**: Technical implementation details
+- **[CLAUDE-ROUTING-ADVISORY.md](docs/CLAUDE-ROUTING-ADVISORY.md)**: Guide for main Claude
+- **[IMPLEMENTATION-REVIEW.md](docs/IMPLEMENTATION-REVIEW.md)**: Complete review and test results
+
+---
+
 ## Quick Start
 
 ### Test the Implementation
