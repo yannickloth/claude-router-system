@@ -59,9 +59,26 @@ def get_model_tier_from_agent_file(agent_name: str, agents_dir: Optional[str] = 
 
     Returns:
         Model tier string ("haiku", "sonnet", or "opus"), defaults to "sonnet"
+
+    Note:
+        If PyYAML is not installed, falls back to substring matching on agent name.
+        Install PyYAML with: pip install PyYAML
     """
-    import yaml
     from pathlib import Path
+
+    # Try to import yaml, fall back gracefully if not available
+    try:
+        import yaml
+    except ImportError:
+        print("Warning: PyYAML not installed. Using fallback agent name matching.", file=sys.stderr)
+        print("Install with: pip install PyYAML", file=sys.stderr)
+        # Fallback to substring matching
+        agent_lower = agent_name.lower()
+        if "haiku" in agent_lower:
+            return "haiku"
+        elif "opus" in agent_lower:
+            return "opus"
+        return "sonnet"
 
     if agents_dir is None:
         # Default to ../agents relative to this file
@@ -89,8 +106,10 @@ def get_model_tier_from_agent_file(agent_name: str, agents_dir: Optional[str] = 
                 frontmatter = yaml.safe_load(parts[1])
                 if frontmatter and "model" in frontmatter:
                     return frontmatter["model"]
-    except Exception:
-        pass
+    except yaml.YAMLError as e:
+        print(f"Warning: Failed to parse YAML frontmatter in {agent_file}: {e}", file=sys.stderr)
+    except Exception as e:
+        print(f"Warning: Unexpected error reading {agent_file}: {e}", file=sys.stderr)
 
     return "sonnet"  # Default
 
@@ -161,7 +180,10 @@ If the request is ambiguous or requires judgment to route, return null with low 
         )
 
         if result.returncode != 0:
-            # Fallback to keyword matching on error
+            # Log error details to stderr
+            stderr = result.stderr.strip() if result.stderr else "no error output"
+            print(f"LLM routing failed (exit {result.returncode}): {stderr}", file=sys.stderr)
+            print(f"Falling back to keyword matching", file=sys.stderr)
             return match_request_to_agents_keywords(request)
 
         # Parse the response - claude --output-format json returns {"result": "..."}
@@ -181,13 +203,24 @@ If the request is ambiguous or requires judgment to route, return null with low 
 
         # Validate agent name
         if agent and agent not in agent_descriptions:
+            print(f"LLM suggested unknown agent: {agent}", file=sys.stderr)
             return None, 0.0
 
         return agent, confidence
 
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, KeyError, Exception) as e:
-        # Fallback to keyword matching on any error
-        print(f"LLM routing failed ({type(e).__name__}), falling back to keywords", file=sys.stderr)
+    except subprocess.TimeoutExpired:
+        print(f"LLM routing timeout after 10s, falling back to keywords", file=sys.stderr)
+        return match_request_to_agents_keywords(request)
+    except json.JSONDecodeError as e:
+        print(f"LLM routing failed (invalid JSON): {e}", file=sys.stderr)
+        print(f"Response was: {result.stdout[:200] if 'result' in locals() else 'N/A'}", file=sys.stderr)
+        print(f"Falling back to keyword matching", file=sys.stderr)
+        return match_request_to_agents_keywords(request)
+    except FileNotFoundError:
+        print(f"claude CLI not found in PATH, falling back to keywords", file=sys.stderr)
+        return match_request_to_agents_keywords(request)
+    except Exception as e:
+        print(f"LLM routing failed ({type(e).__name__}: {e}), falling back to keywords", file=sys.stderr)
         return match_request_to_agents_keywords(request)
 
 
@@ -461,13 +494,33 @@ def route_request(
     and returns a routing decision with the selected agent.
 
     Args:
-        request: User's request string
+        request: User's request string (1-10000 characters)
         context: Optional context dict with project state, files, etc.
         agent_registry: Optional custom agent keyword mappings
 
     Returns:
         RoutingResult with decision, agent, reason, and confidence
+
+    Raises:
+        ValueError: If request is invalid (None, empty, too long)
+        TypeError: If request is not a string
     """
+    # Validate request type
+    if not isinstance(request, str):
+        raise TypeError(f"request must be str, got {type(request).__name__}")
+
+    # Validate request is not empty
+    if not request or not request.strip():
+        raise ValueError("request cannot be empty or whitespace-only")
+
+    # Validate request length
+    if len(request) > 10000:
+        raise ValueError(f"request too long: {len(request)} chars (max 10000)")
+
+    # Validate context if provided
+    if context is not None and not isinstance(context, dict):
+        raise TypeError(f"context must be dict or None, got {type(context).__name__}")
+
     return should_escalate(request, context)
 
 
@@ -496,10 +549,8 @@ def run_cli() -> None:
 
     # Output result
     if output_json:
-        output = {
-            "request": user_request,
-            "routing": result.to_dict(),
-        }
+        # Simplified JSON output for hook consumption
+        output = result.to_dict()
         print(json.dumps(output, indent=2))
     else:
         print(format_routing_output(result, user_request))
