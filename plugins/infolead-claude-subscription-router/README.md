@@ -651,6 +651,37 @@ The plugin uses Claude Code hooks for tracking:
 
 ## Troubleshooting
 
+### Hooks Not Executing (Plugin Bug)
+
+**Symptoms:** Routing recommendations don't appear, session hooks don't run, no metrics logged.
+
+**Cause:** Claude Code has a known bug where plugin-defined hooks are matched but never executed.
+
+**Affected issues:**
+- [#10225](https://github.com/anthropics/claude-code/issues/10225) - UserPromptSubmit hooks from plugins match but never execute
+- [#14410](https://github.com/anthropics/claude-code/issues/14410) - Local plugin hooks match but never execute
+
+**Workaround:** Copy hooks to settings.json:
+
+```bash
+cd plugins/infolead-claude-subscription-router
+
+# Choose your scope:
+./scripts/setup-hooks-workaround.sh --local    # This user, this project
+./scripts/setup-hooks-workaround.sh --project  # All users, this project
+./scripts/setup-hooks-workaround.sh --global   # This user, all projects
+
+# Preview first
+./scripts/setup-hooks-workaround.sh --local --dry-run
+
+# Revert when bug is fixed
+./scripts/setup-hooks-workaround.sh --local --revert
+```
+
+See **[docs/HOOKS-WORKAROUND.md](docs/HOOKS-WORKAROUND.md)** for detailed instructions.
+
+---
+
 ### "Router not being used"
 
 Check your `.claude/CLAUDE.md`:

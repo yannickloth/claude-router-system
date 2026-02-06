@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.2] - 2026-02-06
+
+### Added
+
+- **Hooks workaround documentation**: Complete documentation and tooling for Claude Code plugin hooks bug
+  - `docs/HOOKS-WORKAROUND.md`: Detailed workaround guide with GitHub issue references
+  - `scripts/setup-hooks-workaround.sh`: Automated setup script with three scope options
+  - References Claude Code issues: #10225, #14410, #6305, #2891, #5093
+
+- **Three installation scopes** for hooks workaround:
+  - `--local`: `.claude/settings.local.json` (this user, this project)
+  - `--project`: `.claude/settings.json` (all users, this project - committed)
+  - `--global`: `~/.claude/settings.json` (this user, all projects)
+
+- **Workaround script features**:
+  - `--dry-run` mode to preview changes
+  - `--revert` mode to remove workaround when bug is fixed
+  - Automatic backup creation
+  - Smart merging (won't duplicate existing hooks)
+
+### Changed
+
+- Updated README troubleshooting section with hooks workaround instructions
+
+### Notes
+
+- This release provides a temporary workaround for Claude Code plugin hook execution bugs
+- Plugin hooks are correctly matched but never executed (upstream bug)
+- Workaround copies hooks to settings.json where they execute correctly
+
+---
+
+## [1.3.1] - 2026-02-05
+
+### Fixed
+
+- Minor fixes to hooks and namespace resolution
+
+---
+
 ## [1.3.0] - 2026-02-05
 
 ### 🎉 Major: Visibility & Monitoring System (Option D Implementation)
@@ -167,6 +207,8 @@ All tests passing:
 - IVP architecture enables independent evolution of components
 - See [IMPLEMENTATION-REVIEW.md](docs/IMPLEMENTATION-REVIEW.md) for detailed v1.3.0 review
 
+[1.3.2]: https://github.com/yannickloth/claude-router-system/compare/v1.3.1...v1.3.2
+[1.3.1]: https://github.com/yannickloth/claude-router-system/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/yannickloth/claude-router-system/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/yannickloth/claude-router-system/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/yannickloth/claude-router-system/compare/v1.0.0...v1.1.0
