@@ -1,227 +1,205 @@
-# Advisory Routing System - For Main Claude
+# Mandatory Routing System - For Main Claude
 
-This plugin provides **visible, advisory routing recommendations** via the UserPromptSubmit hook.
+This plugin provides **binding routing directives** via the UserPromptSubmit hook. Routing decisions are mechanical and **mandatory** - you execute them without interpretation, hesitation, or override.
 
 ## How It Works
 
 **Before** you (main Claude) see a user request:
 
-1. The `UserPromptSubmit` hook runs
+1. The `UserPromptSubmit` hook runs automatically
 2. It analyzes the request using `routing_core.py` (mechanical escalation logic)
-3. It outputs a routing recommendation to your context as `<routing-recommendation>`
-4. You see the recommendation as advisory input
+3. It outputs a binding routing directive to your context as `<routing-recommendation>`
+4. You see the directive with explicit ACTION INSTRUCTIONS
 
-## Your Role
+## Your Responsibility
 
-You are **NOT required** to follow the routing recommendation blindly. You should:
+You **MUST** follow the routing directive exactly. You should:
 
-1. **Read the recommendation**: See what the pre-router suggested
-2. **Evaluate its reasoning**: Does the recommendation make sense?
-3. **Make the final decision**: You have the context and judgment to decide
-4. **Explain your decision**: Tell the user what you're doing and why
+1. **Read the directive**: Identify decision, reason, and confidence
+2. **Extract the action**: Determine what agent or action is required
+3. **Execute immediately**: No delay, no questions, no re-analysis
+4. **Report to the user**: Tell them what you're doing and why
 
-### Decision Process
+### Execution Process
 
 ```
 User Request
      ↓
-[Pre-Router Analysis] ← Mechanical checklist (runs automatically)
+[Mechanical Analysis] ← routing_core.py applies mechanical rules
      ↓
-<routing-recommendation> ← Advisory input (you see this)
+<routing-recommendation> ← Binding directive (you MUST follow this)
      ↓
-[Your Decision] ← Final routing decision (you make this)
+[Your Execution] ← Execute the specified action without hesitation
      ↓
-[Execution] ← Delegate to chosen agent OR handle directly
+[Completion] ← Invoke agent OR handle directly (as directed)
 ```
 
-## Routing Recommendation Format
+## Routing Directive Format
 
-The recommendation appears in your context as:
+The directive appears in your context with this structure:
 
-```xml
+```
 <routing-recommendation request-hash="abc123...">
+ROUTING DIRECTIVE - MANDATORY ACTION REQUIRED. No interpretation allowed.
+
+Decision: escalate | direct
+Reason: [mechanical reason from routing_core.py]
+Confidence: [0.0-1.0]
+
+ACTION INSTRUCTIONS:
+- You MUST NOT handle this request directly
+- You MUST use the Task tool to invoke a router agent
+- You MUST NOT ask clarifying questions
+- Execute the action specified below with no hesitation:
+
 {
   "decision": "escalate" | "direct",
-  "agent": "haiku-general" | "sonnet-general" | "opus-general" | null,
-  "reason": "explanation of recommendation",
+  "agent": "agent-name" | null,
+  "reason": "explanation",
   "confidence": 0.0-1.0
 }
+
+IF decision == "escalate": Invoke infolead-claude-subscription-router:router
+IF decision == "direct": Invoke the specified agent (do not escalate further)
 </routing-recommendation>
 ```
 
-## Interpretation Guide
+## Execution Rules
 
-### High Confidence Direct Routing (confidence > 0.8)
+### When Decision is "escalate" (agent: null)
 
-**Recommendation**: `{"decision": "direct", "agent": "haiku-general", "confidence": 0.95}`
+**What this means**: The request has complexity/ambiguity requiring routing judgment.
 
-**Interpretation**: The pre-router is confident this is a mechanical task suitable for Haiku.
+**Your action**:
+1. Invoke Task tool with `subagent_type=infolead-claude-subscription-router:router`
+2. Pass the user's original request to the router agent
+3. Wait for the router to make the routing decision
+4. Execute whatever decision the router returns
 
-**Your options**:
-- ✅ Follow recommendation: Delegate to haiku-general agent
-- ⚠️  Upgrade tier: If you see complexity the pre-router missed, use sonnet/opus instead
-- ❌ Handle directly: Only if genuinely trivial (rare - usually still delegate)
+**Do NOT**:
+- Ask the user clarifying questions (escalate to router instead)
+- Apply your own judgment about routing
+- Handle the request directly
 
-### Escalation Recommendation
+### When Decision is "direct" (agent: "haiku-general" | "sonnet-general" | "opus-general")
 
-**Recommendation**: `{"decision": "escalate", "agent": null, "reason": "ambiguous scope"}`
+**What this means**: The routing analysis determined this should go to a specific agent.
 
-**Interpretation**: The pre-router detected complexity/ambiguity requiring judgment.
+**Your action**:
+1. Invoke Task tool with `subagent_type=<agent-name>`
+2. Pass the user's request to that agent
+3. Wait for the agent to complete
+4. Report results to the user
 
-**Your options**:
-- ✅ Use your judgment: Analyze the request and choose appropriate agent
-- ✅ Delegate to router agent: If routing decision itself is complex, use the router agent
-- ✅ Ask for clarification: If request is genuinely ambiguous, use AskUserQuestion
+**Do NOT**:
+- Escalate further (routing decision is final)
+- Ask the user clarifying questions
+- Handle the request directly
+- Upgrade/downgrade the agent tier
 
-### Low Confidence Recommendations (confidence < 0.7)
+## Why This Is Mandatory
 
-**Recommendation**: `{"decision": "direct", "agent": "sonnet-general", "confidence": 0.6}`
+**The router system only works if decisions are binding.** Here's why:
 
-**Interpretation**: Pre-router made a guess but isn't sure.
+1. **Mechanical routing prevents analysis loops**: Every time you re-analyze, you risk circular indecision
+2. **Clear execution boundaries**: You know exactly what to do, no ambiguity
+3. **Consistent behavior**: Same request always routes the same way
+4. **Measurable performance**: Metrics can track routing accuracy and effectiveness
 
-**Your action**: Treat as escalation - use your judgment to make the final decision.
-
-## When to Follow vs Override
-
-### Follow the Recommendation When:
-
-- High confidence (> 0.8)
-- Reasoning makes sense
-- No additional context that changes the assessment
-- Mechanical task with explicit file paths → haiku-general
-- Standard implementation task → sonnet-general
-
-### Override the Recommendation When:
-
-- You see hidden complexity the pre-router missed
-- You have additional context (conversation history, project knowledge)
-- Security/data integrity concerns
-- User's actual intent differs from literal request
-- The request is part of a multi-turn conversation
-
-### Always Explain Your Decision
-
-**Example - Following Recommendation**:
-```
-The pre-router recommends haiku-general for this syntax fix (confidence: 0.95).
-I agree - this is a mechanical task with an explicit file path.
-Let me delegate to haiku-general.
-```
-
-**Example - Overriding Recommendation**:
-```
-The pre-router suggests haiku-general (confidence: 0.85), but I notice this file
-is part of the authentication system. Given the security implications, I'm upgrading
-to sonnet-general for more careful analysis.
-```
-
-**Example - Escalating When Recommended**:
-```
-The pre-router flagged this as requiring judgment (escalation recommended).
-I agree - "optimize performance" is vague and could mean many things.
-Let me ask the user for clarification first.
-```
-
-## Metrics and Learning
-
-Your routing decisions are tracked:
-- Recommendation: What pre-router suggested
-- Actual: What you chose
-- Outcome: Success/failure of the delegated agent
-
-This feedback helps improve the pre-router's mechanical escalation rules over time.
-
-## Visibility
-
-Both you and the user see the routing recommendation:
-- **User sees (stderr)**: `[ROUTER] Recommendation: haiku-general (confidence: 0.95)`
-- **You see (context)**: Full JSON recommendation with reasoning
-- **Logs capture**: Both recommendation and your actual decision
-
-This transparency builds trust and allows the user to understand the routing process.
-
-## Important: You Still Have Agency
-
-The pre-router is **advisory, not mandatory**. Key points:
-
-1. **You make the final decision**: Pre-router provides input, you decide
-2. **You have more context**: Conversation history, user intent, project knowledge
-3. **You can handle simple queries**: If truly trivial, you can answer directly (rare)
-4. **You should explain reasoning**: User sees both recommendation and your decision
+If you question or override routing decisions, the system becomes non-deterministic and loses its value.
 
 ## Example Scenarios
 
-### Scenario 1: Clear Mechanical Task
+### Scenario 1: Clear Mechanical Task → Direct to Haiku
 
-**Request**: "Fix typo in README.md line 42: change 'teh' to 'the'"
+**User request**: "Fix typo in README.md line 42: change 'teh' to 'the'"
 
-**Recommendation**: `{"decision": "direct", "agent": "haiku-general", "confidence": 0.98}`
+**Routing decision**: `{"decision": "direct", "agent": "haiku-general", "confidence": 0.98}`
 
-**Your decision**: Follow recommendation - this is exactly what haiku-general is for.
+**Your action**: Immediately invoke haiku-general agent with this request.
 
-**Your response**:
+**You say to user**:
 ```
-The pre-router correctly identified this as a mechanical syntax fix.
-I'll delegate to haiku-general to make this change.
-```
-
----
-
-### Scenario 2: Hidden Complexity
-
-**Request**: "Update the auth configuration"
-
-**Recommendation**: `{"decision": "direct", "agent": "sonnet-general", "confidence": 0.75}`
-
-**Your decision**: The recommendation seems reasonable, but you notice this is a security-critical file. Upgrade to opus-general.
-
-**Your response**:
-```
-The pre-router suggests sonnet-general, but I notice this involves authentication
-configuration, which has security implications. I'm upgrading to opus-general for
-extra careful handling of this security-sensitive change.
+Routing directive: direct → haiku-general (confidence: 0.98)
+This is a mechanical syntax fix. Delegating to haiku-general...
 ```
 
 ---
 
-### Scenario 3: Ambiguous Request
+### Scenario 2: Ambiguous Request → Escalate to Router
 
-**Request**: "Make it faster"
+**User request**: "Optimize the system"
 
-**Recommendation**: `{"decision": "escalate", "reason": "ambiguous scope - unclear what 'it' refers to"}`
+**Routing decision**: `{"decision": "escalate", "agent": null, "reason": "ambiguous scope", "confidence": 0.9}`
 
-**Your decision**: Agree with escalation - need clarification.
+**Your action**: Invoke the router agent with the user's request. Do NOT ask for clarification yourself.
 
-**Your response**:
+**You say to user**:
 ```
-The pre-router correctly flagged this as ambiguous. Before I can route effectively,
-I need to clarify: What specifically should be optimized? The build process? Runtime
-performance? A specific function? The UI responsiveness?
+Routing directive: escalate (confidence: 0.9)
+This request needs routing judgment. Invoking router agent...
+```
+
+(Then the router agent will either ask for clarification OR route to appropriate agent)
+
+---
+
+### Scenario 3: Standard Implementation → Direct to Sonnet
+
+**User request**: "Add authentication to the login form"
+
+**Routing decision**: `{"decision": "direct", "agent": "sonnet-general", "confidence": 0.85}`
+
+**Your action**: Immediately invoke sonnet-general agent with this request.
+
+**You say to user**:
+```
+Routing directive: direct → sonnet-general (confidence: 0.85)
+This is a standard implementation task. Delegating to sonnet-general...
 ```
 
 ---
 
-### Scenario 4: Multi-turn Context
+### Scenario 4: Complex Task → Direct to Opus
 
-**Request**: "Now add tests for that function" (referring to a function from 3 messages ago)
+**User request**: "Design a new architecture for our event system that handles 10K concurrent events"
 
-**Recommendation**: `{"decision": "escalate", "reason": "unclear referent"}`
+**Routing decision**: `{"decision": "direct", "agent": "opus-general", "confidence": 0.9}`
 
-**Your decision**: You have conversation context - "that function" is clear from history.
+**Your action**: Immediately invoke opus-general agent with this request.
 
-**Your response**:
+**You say to user**:
 ```
-The pre-router flagged "that function" as ambiguous (it doesn't have conversation
-context), but from our discussion, I know you're referring to the `validateUser`
-function we just implemented. I'll delegate to sonnet-general to add tests.
+Routing directive: direct → opus-general (confidence: 0.9)
+This requires deep architectural reasoning. Delegating to opus-general...
 ```
+
+## Visibility and Transparency
+
+Both you and the user see the routing process:
+
+- **User sees (stderr)**: `[ROUTER] Recommendation: haiku-general (confidence: 0.95)`
+- **User sees (in-context)**: Your execution message explaining the routing
+- **You see (context)**: Full routing directive with decision, reason, confidence
+- **Logs track**: Every routing decision and outcome for system improvement
+
+This transparency builds trust and allows the user to understand the routing process.
+
+## Metrics and Learning
+
+Routing decisions are tracked:
+- **Recommendation**: What routing_core.py determined
+- **Execution**: What you invoked (should always match recommendation)
+- **Outcome**: Success/failure of the delegated agent
+
+This feedback helps improve the mechanical escalation rules over time.
 
 ## Summary
 
-- **Pre-router**: Fast, mechanical analysis with escalation triggers
-- **You**: Final decision-maker with full context and judgment
-- **Visibility**: Both recommendation and decision are logged and displayed
-- **Learning**: Metrics track accuracy and improve the system
-- **Flexibility**: You can follow, override, or escalate based on your assessment
+- **Routing**: Mechanical analysis using proven escalation triggers
+- **Decision**: Binding (not advisory) - you execute it
+- **Your role**: Executor, not decision-maker (the system made the decision)
+- **Visibility**: Both recommendation and execution are logged
+- **No exceptions**: All requests route through this system with no override capability
 
-The pre-router is a tool to help you, not a constraint on your agency.
+The mechanical router is the decision authority. Your job is reliable execution.

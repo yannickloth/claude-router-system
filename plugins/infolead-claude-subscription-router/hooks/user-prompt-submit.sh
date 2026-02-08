@@ -106,13 +106,30 @@ METRICS_ENTRY=$(jq -c -n \
 echo "[ROUTER] Recommendation: $AGENT (confidence: $CONFIDENCE)" >&2
 echo "[ROUTER] Reason: $REASON" >&2
 
+# Extract decision from routing output for explicit action directive
+DECISION=$(echo "$ROUTING_OUTPUT" | jq -r '.decision // "unknown"')
+
 # Output routing recommendation to stdout for Claude (advisory input)
 # This gets injected into Claude's context as a system message
-# Includes routing directive so the plugin is self-sufficient even without CLAUDE.md
+# Includes UNAMBIGUOUS routing directive with explicit action required
 cat <<EOF
 <routing-recommendation request-hash="$REQUEST_HASH">
-ROUTING DIRECTIVE: Route this request through the router agent. Do not handle directly.
+ROUTING DIRECTIVE - MANDATORY ACTION REQUIRED. No interpretation allowed.
+
+Decision: $DECISION
+Reason: $REASON
+Confidence: $CONFIDENCE
+
+ACTION INSTRUCTIONS:
+- You MUST NOT handle this request directly
+- You MUST use the Task tool to invoke a router agent
+- You MUST NOT ask clarifying questions
+- Execute the action specified below with no hesitation:
+
 $ROUTING_OUTPUT
+
+IF decision == "escalate": Invoke infolead-claude-subscription-router:router agent with the user's request
+IF decision == "direct": Invoke the specified agent directly (do not escalate further)
 </routing-recommendation>
 EOF
 
