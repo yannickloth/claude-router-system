@@ -112,6 +112,31 @@ SUITES_RUN=$((SUITES_RUN + 1))
 echo ""
 
 # ============================================================================
+# Suite 4: Routing Visibility Tests (bash)
+# ============================================================================
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${YELLOW}Suite 4: Routing Visibility Tests (bash)${NC}"
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+VIS_OUTPUT=$(mktemp)
+if ./tests/infolead-claude-subscription-router/test_routing_visibility.sh > "$VIS_OUTPUT" 2>&1; then
+    VIS_PASSED=$(grep -oP 'passed: \K\d+' "$VIS_OUTPUT" | head -1 || echo "15")
+    echo -e "${GREEN}✓ Visibility tests passed: $VIS_PASSED${NC}"
+    TOTAL_PASSED=$((TOTAL_PASSED + VIS_PASSED))
+else
+    VIS_PASSED=$(grep -oP 'passed: \K\d+' "$VIS_OUTPUT" | head -1 || echo "0")
+    VIS_FAILED=$(grep -oP 'failed: \K\d+' "$VIS_OUTPUT" | head -1 || echo "0")
+    echo -e "${RED}✗ Visibility tests: $VIS_PASSED passed, $VIS_FAILED failed${NC}"
+    TOTAL_PASSED=$((TOTAL_PASSED + VIS_PASSED))
+    TOTAL_FAILED=$((TOTAL_FAILED + VIS_FAILED))
+    grep -A1 "FAIL:" "$VIS_OUTPUT" | head -20 || true
+fi
+rm -f "$VIS_OUTPUT"
+SUITES_RUN=$((SUITES_RUN + 1))
+
+echo ""
+
+# ============================================================================
 # Summary
 # ============================================================================
 echo -e "${BLUE}╔═══════════════════════════════════════════════════════════════╗${NC}"

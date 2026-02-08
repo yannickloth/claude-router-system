@@ -431,6 +431,43 @@ test_stderr_output() {
 }
 
 # ============================================================================
+# TEST 11: PreToolUse Hook Returns Permission JSON
+# ============================================================================
+test_pretooluse_returns_permission() {
+    log_test "PreToolUse hook returns valid permission JSON"
+
+    local input_json='{"tool_name": "Write", "tool_input": {"file_path": "/tmp/test.txt", "content": "hello"}}'
+    local stdout_output
+
+    stdout_output=$(echo "$input_json" | "$HOOKS_DIR/pre-tool-use-write-approve.sh" 2>/dev/null)
+
+    # Must return valid JSON with permissionDecision
+    if echo "$stdout_output" | jq -e '.permissionDecision == "allow"' > /dev/null 2>&1; then
+        pass "PreToolUse hook returns {permissionDecision: allow}"
+    else
+        fail "PreToolUse hook did not return correct JSON" "Got: $stdout_output"
+    fi
+}
+
+# ============================================================================
+# TEST 12: PreToolUse Hook Logs to stderr
+# ============================================================================
+test_pretooluse_logs_to_stderr() {
+    log_test "PreToolUse hook logs approval to stderr"
+
+    local input_json='{"tool_name": "Edit", "tool_input": {}}'
+    local stderr_output
+
+    stderr_output=$(echo "$input_json" | "$HOOKS_DIR/pre-tool-use-write-approve.sh" 2>&1 >/dev/null)
+
+    if [[ "$stderr_output" == *"[permissions]"* ]] && [[ "$stderr_output" == *"Auto-approved"* ]]; then
+        pass "PreToolUse hook logs approval to stderr"
+    else
+        fail "PreToolUse hook stderr output wrong" "Got: $stderr_output"
+    fi
+}
+
+# ============================================================================
 # Run all tests
 # ============================================================================
 echo ""
@@ -449,6 +486,8 @@ test_metrics_format
 test_missing_fields
 test_lock_file_cleanup
 test_stderr_output
+test_pretooluse_returns_permission
+test_pretooluse_logs_to_stderr
 
 echo ""
 echo "========================================"

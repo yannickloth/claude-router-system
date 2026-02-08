@@ -227,6 +227,77 @@ verify_router_agents() {
     fi
 }
 
+verify_agent_permission_modes() {
+    log_test "Verifying Write/Edit agents have permissionMode: acceptEdits"
+
+    local agents_dir="$PLUGIN_DIR/agents"
+    local errors=0
+
+    # These agents have Write/Edit tools and must have permissionMode
+    for agent in "haiku-general" "sonnet-general" "opus-general" "work-coordinator" "temporal-scheduler"; do
+        local file="$agents_dir/$agent.md"
+        if [[ ! -f "$file" ]]; then
+            echo "  Missing agent file: $agent.md"
+            errors=$((errors + 1))
+            continue
+        fi
+
+        # Extract frontmatter (between first and second ---)
+        local frontmatter
+        frontmatter=$(sed -n '2,/^---$/p' "$file" | head -n -1)
+
+        if ! echo "$frontmatter" | grep -q "permissionMode:.*acceptEdits"; then
+            echo "  $agent: missing permissionMode: acceptEdits"
+            errors=$((errors + 1))
+        fi
+    done
+
+    # These read-only agents should NOT have permissionMode
+    for agent in "router" "router-escalation" "planner" "strategy-advisor" "haiku-pre-router" "probabilistic-router"; do
+        local file="$agents_dir/$agent.md"
+        if [[ ! -f "$file" ]]; then
+            continue
+        fi
+
+        local frontmatter
+        frontmatter=$(sed -n '2,/^---$/p' "$file" | head -n -1)
+
+        if echo "$frontmatter" | grep -q "permissionMode:"; then
+            echo "  $agent: should NOT have permissionMode (read-only)"
+            errors=$((errors + 1))
+        fi
+    done
+
+    if [[ "$errors" -eq 0 ]]; then
+        pass "Agent permission modes correctly configured"
+    else
+        fail "$errors permission mode configuration errors"
+    fi
+}
+
+simulate_pretooluse_hook() {
+    log_test "Simulating PreToolUse hook for Write approval"
+
+    local hooks_dir="$PLUGIN_DIR/hooks"
+    local hook_script="$hooks_dir/pre-tool-use-write-approve.sh"
+
+    if [[ ! -f "$hook_script" ]]; then
+        fail "PreToolUse hook script not found" "$hook_script"
+        return 1
+    fi
+
+    local input_json='{"tool_name": "Write", "tool_input": {"file_path": "/tmp/test.txt", "content": "test"}}'
+    local output
+
+    output=$(echo "$input_json" | "$hook_script" 2>/dev/null)
+
+    if echo "$output" | jq -e '.permissionDecision == "allow"' > /dev/null 2>&1; then
+        pass "PreToolUse hook returns permission approval JSON"
+    else
+        fail "PreToolUse hook output incorrect" "Got: $output"
+    fi
+}
+
 # ============================================================================
 # PHASE 3: Simulate Claude Code Hook Events
 # ============================================================================
@@ -481,10 +552,12 @@ verify_hooks_json
 verify_agents_loadable
 verify_general_agents
 verify_router_agents
+verify_agent_permission_modes
 
 # Phase 3: Hook Simulation
 setup_test_project
 simulate_agent_lifecycle
+simulate_pretooluse_hook
 verify_metrics_created
 verify_log_format
 

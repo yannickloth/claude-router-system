@@ -267,9 +267,9 @@ class TestRoutingChainEdgeCases:
     """Test edge cases and boundary conditions."""
 
     def test_empty_request(self):
-        """Empty request should escalate (can't determine intent)."""
-        result = route_request("")
-        assert result.decision == RouterDecision.ESCALATE_TO_SONNET
+        """Empty request should raise ValueError."""
+        with pytest.raises(ValueError, match="empty"):
+            route_request("")
 
     def test_very_long_request(self):
         """Very long requests should still work."""

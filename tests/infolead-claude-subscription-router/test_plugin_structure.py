@@ -48,12 +48,43 @@ class TestPluginJson:
         assert re.match(r"^\d+\.\d+\.\d+$", version), f"Version '{version}' must be semver"
 
     def test_hooks_path_valid(self, plugin_json):
-        """Hooks path must resolve to existing file."""
-        hooks_path = plugin_json.get("hooks")
-        if hooks_path:
-            # Resolve relative to plugin.json location
-            resolved = (PLUGIN_DIR / hooks_path).resolve()
-            assert resolved.exists(), f"Hooks file not found: {resolved}"
+        """Hooks must be either inline dict or a valid file path."""
+        hooks = plugin_json.get("hooks")
+        if hooks is None:
+            return
+        if isinstance(hooks, dict):
+            # Inline hooks in plugin.json - valid format
+            assert len(hooks) > 0, "Hooks dict must not be empty"
+            return
+        # String path - resolve relative to plugin.json location
+        resolved = (PLUGIN_DIR / hooks).resolve()
+        assert resolved.exists(), f"Hooks file not found: {resolved}"
+
+    def test_pretooluse_hook_exists(self, plugin_json):
+        """Plugin must have PreToolUse hook for write permission approval."""
+        hooks = plugin_json.get("hooks", {})
+        assert "PreToolUse" in hooks, "plugin.json must define PreToolUse hook"
+        pre_hooks = hooks["PreToolUse"]
+        assert len(pre_hooks) > 0, "PreToolUse must have at least one config"
+        matchers = [c.get("matcher", "") for c in pre_hooks]
+        assert any("Write" in m for m in matchers), (
+            "PreToolUse must match Write tool"
+        )
+
+    def test_pretooluse_hook_script_exists(self, plugin_json):
+        """PreToolUse hook command script must exist."""
+        hooks = plugin_json.get("hooks", {})
+        for config in hooks.get("PreToolUse", []):
+            for hook in config.get("hooks", []):
+                if hook.get("type") == "command":
+                    command = hook.get("command", "")
+                    script_path = command.replace(
+                        "${CLAUDE_PLUGIN_ROOT}",
+                        str(PLUGIN_ROOT)
+                    )
+                    assert Path(script_path).exists(), (
+                        f"PreToolUse hook script not found: {script_path}"
+                    )
 
 
 class TestHooksJson:
@@ -178,6 +209,57 @@ class TestAgentFiles:
                         f"{agent_file.name}: name '{actual_name}' "
                         f"should match filename '{expected_name}'"
                     )
+
+
+class TestAgentPermissionMode:
+    """Test that agents with Write/Edit tools have permissionMode set."""
+
+    WRITE_EDIT_AGENTS = {
+        "haiku-general", "sonnet-general", "opus-general",
+        "work-coordinator", "temporal-scheduler"
+    }
+    READ_ONLY_AGENTS = {
+        "router", "router-escalation", "haiku-pre-router",
+        "planner", "strategy-advisor", "probabilistic-router"
+    }
+
+    @pytest.fixture
+    def agent_files(self):
+        """Get all agent markdown files."""
+        return list(AGENTS_DIR.glob("*.md"))
+
+    def test_write_agents_have_permission_mode(self, agent_files):
+        """Agents with Write/Edit tools must have permissionMode: acceptEdits."""
+        for agent_file in agent_files:
+            agent_name = agent_file.stem
+            if agent_name not in self.WRITE_EDIT_AGENTS:
+                continue
+            content = agent_file.read_text()
+            parts = content.split("---", 2)
+            if len(parts) < 3:
+                continue
+            frontmatter = parts[1]
+            assert "permissionMode:" in frontmatter, (
+                f"{agent_name} has Write/Edit tools but missing permissionMode"
+            )
+            assert "acceptEdits" in frontmatter, (
+                f"{agent_name} permissionMode should be 'acceptEdits'"
+            )
+
+    def test_readonly_agents_no_permission_mode(self, agent_files):
+        """Read-only agents should NOT have permissionMode set."""
+        for agent_file in agent_files:
+            agent_name = agent_file.stem
+            if agent_name not in self.READ_ONLY_AGENTS:
+                continue
+            content = agent_file.read_text()
+            parts = content.split("---", 2)
+            if len(parts) < 3:
+                continue
+            frontmatter = parts[1]
+            assert "permissionMode:" not in frontmatter, (
+                f"{agent_name} is read-only and should NOT have permissionMode"
+            )
 
 
 class TestHookScripts:
