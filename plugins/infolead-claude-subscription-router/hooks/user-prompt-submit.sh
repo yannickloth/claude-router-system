@@ -45,6 +45,12 @@ if ! command -v python3 &> /dev/null; then
     exit 0
 fi
 
+# Check for jq availability (used for JSON processing below)
+if ! command -v jq &> /dev/null; then
+    # jq not available - pass through silently
+    exit 0
+fi
+
 # Run routing analysis with JSON output
 ROUTING_OUTPUT=$(python3 "$ROUTING_SCRIPT" --json <<< "$USER_REQUEST" 2>/dev/null || echo '{"error": "routing_failed"}')
 
@@ -102,8 +108,10 @@ echo "[ROUTER] Reason: $REASON" >&2
 
 # Output routing recommendation to stdout for Claude (advisory input)
 # This gets injected into Claude's context as a system message
+# Includes routing directive so the plugin is self-sufficient even without CLAUDE.md
 cat <<EOF
 <routing-recommendation request-hash="$REQUEST_HASH">
+ROUTING DIRECTIVE: Route this request through the router agent. Do not handle directly.
 $ROUTING_OUTPUT
 </routing-recommendation>
 EOF

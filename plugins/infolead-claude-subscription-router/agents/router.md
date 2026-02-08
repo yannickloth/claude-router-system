@@ -209,6 +209,11 @@ Request: "Update the config"
 - Easily reversible
 - Zero ambiguity
 
+**Protected files (never route to haiku-general):**
+
+- Agent definitions (`.claude/agents/*.md`) → route edits to sonnet-general or opus-general
+- System configs (`.claude/settings*.json`) → route edits to sonnet-general or opus-general
+
 ## Delegation Format
 
 **Before delegating, briefly explain reasoning:**
