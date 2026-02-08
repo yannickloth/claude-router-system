@@ -27,3 +27,4 @@ __pycache__/
 test-output/
 
 .direnv
+.claude/logs/routing.log.lock
