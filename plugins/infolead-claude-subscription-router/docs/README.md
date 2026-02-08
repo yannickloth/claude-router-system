@@ -6,11 +6,19 @@
 
 ---
 
-## Quick Links
+## Documentation Structure
 
-- **📋 [Review Summary](REVIEW-SUMMARY.md)** - Executive overview of review findings
-- **🔍 [Detailed Findings](REVIEW-FINDINGS.md)** - Complete issue analysis (450+ lines)
-- **✅ [Fixes Applied](FIXES-APPLIED.md)** - All changes made to address issues
+- **📋 [Requirements](Requirements/)** - System requirements and design constraints
+- **🏗️ [Solution](Solution/)** - Implementation details and design decisions
+- **🏛️ [Architecture](Solution/Architecture/)** - Routing system architecture and guidelines
+- **🔧 [Implementation](Solution/Implementation/)** - Workarounds, features, and testing
+
+### Quick Links
+
+- **[Review Summary](Solution/REVIEW-SUMMARY.md)** - Executive overview of review findings
+- **[Detailed Findings](Solution/REVIEW-FINDINGS.md)** - Complete issue analysis
+- **[Fixes Applied](Solution/FIXES-APPLIED.md)** - All changes made to address issues
+- **[Routing Guide](Solution/Architecture/CLAUDE-ROUTING-ADVISORY.md)** - Mandatory routing system
 - **🧪 [Test Suite](../tests/test_routing_core.py)** - 57 comprehensive unit tests
 
 ---
