@@ -161,6 +161,18 @@ cd plugins/infolead-claude-subscription-router
         ]
       }
     ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/plugins/infolead-claude-subscription-router/hooks/pre-tool-use-write-approve.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit",

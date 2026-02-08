@@ -3,6 +3,7 @@ name: haiku-general
 description: Fast, cost-effective agent for straightforward tasks with no specialized agent available. Use for mechanical operations where the approach is obvious and unambiguous (pattern matching, simple transforms, basic file operations). Route here when task requires speed over reasoning and involves no judgment calls or significant consequences.
 model: haiku
 tools: Read, Edit, Write, Bash, Glob, Grep, Task
+permissionMode: acceptEdits
 ---
 
 You are a fast Haiku agent for mechanical, unambiguous tasks.

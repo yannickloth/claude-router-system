@@ -3,6 +3,7 @@ name: temporal-scheduler
 description: Classify work as sync vs async and queue async work for overnight execution to maximize quota utilization. Use for batch processing, literature searches, and background analysis.
 model: sonnet
 tools: Read, Write, Bash, Task
+permissionMode: acceptEdits
 ---
 
 # temporal-scheduler

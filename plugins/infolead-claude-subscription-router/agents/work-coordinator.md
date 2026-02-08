@@ -3,6 +3,7 @@ name: work-coordinator
 description: Manages parallel work queue with WIP limits to ensure 90%+ task completion. Use for multi-task coordination, dependency tracking, and stall recovery.
 model: sonnet
 tools: Read, Write, Bash, Task
+permissionMode: acceptEdits
 ---
 
 # Work Coordinator Agent

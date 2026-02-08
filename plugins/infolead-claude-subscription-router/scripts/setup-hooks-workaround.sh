@@ -238,6 +238,18 @@ generate_hooks_json() {
       ]
     }
   ],
+  "PreToolUse": [
+    {
+      "matcher": "Write|Edit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "${PLUGIN_ROOT}/hooks/pre-tool-use-write-approve.sh",
+          "timeout": 5
+        }
+      ]
+    }
+  ],
   "PostToolUse": [
     {
       "matcher": "Write|Edit",
@@ -317,6 +329,103 @@ else:
         json.dump(settings, f, indent=2)
         f.write('\n')
     print(f"\nSettings updated: {settings_file}")
+PYTHON
+}
+
+# Merge Write/Edit permissions into settings file
+merge_permissions() {
+    python3 << PYTHON
+import json
+import sys
+
+settings_file = "$SETTINGS_FILE"
+dry_run = $( [[ "$DRY_RUN" == "true" ]] && echo "True" || echo "False" )
+
+# Read current settings
+with open(settings_file, 'r') as f:
+    settings = json.load(f)
+
+# Required permissions for background agent file writes
+required_permissions = ["Write(*)", "Edit(*)"]
+
+# Get or create permissions section
+permissions = settings.setdefault('permissions', {})
+allow_list = permissions.setdefault('allow', [])
+
+# Track changes
+changes = []
+
+for perm in required_permissions:
+    if perm not in allow_list:
+        allow_list.append(perm)
+        changes.append(f"  + Added permission: {perm}")
+
+if not changes:
+    print("No permission changes needed - Write/Edit already allowed")
+    sys.exit(0)
+
+settings['permissions']['allow'] = allow_list
+
+print("Permission changes to be made:")
+for change in changes:
+    print(change)
+
+if dry_run:
+    print("\n[DRY RUN] No changes written")
+else:
+    with open(settings_file, 'w') as f:
+        json.dump(settings, f, indent=2)
+        f.write('\n')
+    print(f"\nPermissions updated: {settings_file}")
+PYTHON
+}
+
+# Remove plugin permissions from settings file
+revert_permissions() {
+    python3 << PYTHON
+import json
+import sys
+
+settings_file = "$SETTINGS_FILE"
+dry_run = $( [[ "$DRY_RUN" == "true" ]] && echo "True" || echo "False" )
+
+# Read current settings
+with open(settings_file, 'r') as f:
+    settings = json.load(f)
+
+# Permissions added by this plugin
+plugin_permissions = {"Write(*)", "Edit(*)"}
+
+allow_list = settings.get('permissions', {}).get('allow', [])
+if not allow_list:
+    print("No permissions found to revert")
+    sys.exit(0)
+
+changes = []
+new_allow = []
+for perm in allow_list:
+    if perm in plugin_permissions:
+        changes.append(f"  - Removed permission: {perm}")
+    else:
+        new_allow.append(perm)
+
+if not changes:
+    print("No plugin permissions found to remove")
+    sys.exit(0)
+
+settings['permissions']['allow'] = new_allow
+
+print("Permission changes to be made:")
+for change in changes:
+    print(change)
+
+if dry_run:
+    print("\n[DRY RUN] No changes written")
+else:
+    with open(settings_file, 'w') as f:
+        json.dump(settings, f, indent=2)
+        f.write('\n')
+    print(f"\nPermissions updated: {settings_file}")
 PYTHON
 }
 
@@ -404,7 +513,7 @@ main() {
     ensure_settings_file
 
     if [[ "$REVERT" == "true" ]]; then
-        log_info "Reverting workaround (removing plugin hooks)"
+        log_info "Reverting workaround (removing plugin hooks and permissions)"
 
         if [[ "$DRY_RUN" == "false" ]]; then
             log_info "Creating backup: $BACKUP_FILE"
@@ -412,8 +521,10 @@ main() {
         fi
 
         revert_hooks
+        echo ""
+        revert_permissions
     else
-        log_info "Setting up workaround (copying hooks to $SCOPE_DESC settings)"
+        log_info "Setting up workaround (copying hooks and permissions to $SCOPE_DESC settings)"
         log_warn "This is a temporary fix for Claude Code issue #10225, #14410"
         echo ""
 
@@ -423,6 +534,9 @@ main() {
         fi
 
         merge_hooks
+        echo ""
+        log_info "Adding Write/Edit permissions for background agent file operations"
+        merge_permissions
     fi
 
     echo ""
