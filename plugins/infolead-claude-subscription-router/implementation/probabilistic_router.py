@@ -51,7 +51,7 @@ class RoutingDecision:
     """Routing decision with confidence and validation criteria."""
     recommended_model: str
     confidence: RoutingConfidence
-    fallback_model: Optional[str]
+    fallback_chain: List[str]
     validation_criteria: List[str]
     reasoning: str = ""
 
@@ -60,7 +60,7 @@ class RoutingDecision:
         return {
             "recommended_model": self.recommended_model,
             "confidence": self.confidence.value,
-            "fallback_model": self.fallback_model,
+            "fallback_chain": self.fallback_chain,
             "validation_criteria": self.validation_criteria,
             "reasoning": self.reasoning,
         }
@@ -76,6 +76,7 @@ class RoutingOutcome:
     success: bool
     escalated: bool
     validation_failures: List[str] = field(default_factory=list)
+    escalation_path: List[str] = field(default_factory=list)
 
 
 class ProbabilisticRouter:
@@ -164,7 +165,7 @@ class ProbabilisticRouter:
             return RoutingDecision(
                 recommended_model="haiku",
                 confidence=RoutingConfidence.HIGH,
-                fallback_model="sonnet",
+                fallback_chain=["sonnet", "opus"],
                 validation_criteria=["syntax_valid", "no_logic_change"],
                 reasoning="Mechanical task with clear rules",
             )
@@ -185,7 +186,7 @@ class ProbabilisticRouter:
             return RoutingDecision(
                 recommended_model="haiku",
                 confidence=RoutingConfidence.HIGH,
-                fallback_model="sonnet",
+                fallback_chain=["sonnet"],
                 validation_criteria=["results_found"],
                 reasoning="Read-only operation",
             )
@@ -209,7 +210,7 @@ class ProbabilisticRouter:
                 return RoutingDecision(
                     recommended_model="haiku",
                     confidence=RoutingConfidence.MEDIUM,
-                    fallback_model="sonnet",
+                    fallback_chain=["sonnet", "opus"],
                     validation_criteria=["output_valid", "user_verify"],
                     reasoning=f"Transform task (success rate: {haiku_success_rate:.0%})",
                 )
@@ -217,7 +218,7 @@ class ProbabilisticRouter:
                 return RoutingDecision(
                     recommended_model="sonnet",
                     confidence=RoutingConfidence.HIGH,
-                    fallback_model=None,
+                    fallback_chain=["opus"],
                     validation_criteria=[],
                     reasoning=f"Transform task, Haiku success rate too low ({haiku_success_rate:.0%})",
                 )
@@ -240,7 +241,7 @@ class ProbabilisticRouter:
             return RoutingDecision(
                 recommended_model="sonnet",
                 confidence=RoutingConfidence.HIGH,
-                fallback_model="opus",
+                fallback_chain=["opus"],
                 validation_criteria=[],
                 reasoning="Requires judgment or analysis",
             )
@@ -259,7 +260,7 @@ class ProbabilisticRouter:
             return RoutingDecision(
                 recommended_model="opus",
                 confidence=RoutingConfidence.HIGH,
-                fallback_model=None,
+                fallback_chain=[],
                 validation_criteria=[],
                 reasoning="Requires complex reasoning",
             )
@@ -278,7 +279,7 @@ class ProbabilisticRouter:
             return RoutingDecision(
                 recommended_model="sonnet",
                 confidence=RoutingConfidence.MEDIUM,
-                fallback_model=None,
+                fallback_chain=["opus"],
                 validation_criteria=["user_verify"],
                 reasoning="Destructive operation requires caution",
             )
@@ -287,7 +288,7 @@ class ProbabilisticRouter:
         return RoutingDecision(
             recommended_model="sonnet",
             confidence=RoutingConfidence.MEDIUM,
-            fallback_model=None,
+            fallback_chain=["opus"],
             validation_criteria=[],
             reasoning="Default routing",
         )
@@ -570,6 +571,63 @@ class ResultValidator:
         print("[validation] Result flagged for user review", file=sys.stderr)
         return True, None
 
+    # Patterns that indicate failures beyond simple mechanical fixes
+    _REASONING_FAILURE_PATTERNS = [
+        r"tests? failed.*logic",
+        r"assertion.*error",
+        r"unexpected (behavior|result|output)",
+        r"design (flaw|issue|problem)",
+        r"architectural",
+        r"race condition",
+        r"incorrect (logic|algorithm|approach)",
+        r"fundamental",
+        r"conceptual",
+        r"misunderst",
+    ]
+
+    def should_skip_tier(
+        self,
+        failure_reason: str,
+        candidate_model: str,
+    ) -> bool:
+        """
+        Determine if a candidate fallback model should be skipped.
+
+        When a cheaper model fails, the failure reason may reveal complexity
+        that exceeds the next tier's capability. Mechanical failures (syntax,
+        format) can be fixed by any tier. Reasoning failures (logic errors,
+        design issues) suggest skipping to a higher tier.
+
+        Args:
+            failure_reason: Why the previous model's result failed validation
+            candidate_model: The model we're considering trying next
+
+        Returns:
+            True if candidate_model should be skipped (failure is beyond its tier)
+        """
+        # Opus is never skipped — it's the top tier
+        if candidate_model == "opus":
+            return False
+
+        # Mechanical failures are fixable by any tier — never skip
+        mechanical_indicators = [
+            "syntax error", "brace mismatch", "environment mismatch",
+            "json syntax", "no results found", "no matches found",
+            "no files found", "command not found", "timed out",
+        ]
+        failure_lower = failure_reason.lower()
+        if any(indicator in failure_lower for indicator in mechanical_indicators):
+            return False
+
+        # Check for reasoning-level failure patterns
+        if any(re.search(p, failure_lower) for p in self._REASONING_FAILURE_PATTERNS):
+            print(f"[validation] Failure indicates reasoning complexity, "
+                  f"skipping {candidate_model}", file=sys.stderr)
+            return True
+
+        # Default: don't skip — let the next tier try
+        return False
+
 
 class OptimisticExecutor:
     """Execute with cheap model, validate, escalate if needed."""
@@ -602,7 +660,8 @@ class OptimisticExecutor:
     ) -> Any:
         """
         Execute request with optimistic routing.
-        Try cheap model first, escalate on validation failure.
+        Try cheap model first, walk the fallback chain on validation failure.
+        Tiers may be skipped when the failure reveals complexity beyond that tier.
 
         Args:
             request: User's request
@@ -625,82 +684,87 @@ class OptimisticExecutor:
               f"(confidence: {decision.confidence.value})", file=sys.stderr)
         if decision.reasoning:
             print(f"[routing] Reason: {decision.reasoning}", file=sys.stderr)
+        if decision.fallback_chain:
+            print(f"[routing] Fallback chain: {' → '.join(decision.fallback_chain)}",
+                  file=sys.stderr)
 
-        # Try recommended model
         self.total_executions += 1
-
-        # Determine task type for learning
         task_type = self._classify_task_type(request)
+        escalation_path = [decision.recommended_model]
 
+        # Execute with recommended model
         result = await self._execute_with_model(
-            request,
-            decision.recommended_model,
-            context,
-            executor
+            request, decision.recommended_model, context, executor
         )
 
-        # Validate result if criteria specified
-        if decision.validation_criteria:
-            is_valid, failure_reason = self.validator.validate_result(
-                result,
-                decision.validation_criteria,
-                context
-            )
-
-            if not is_valid:
-                print(f"[validation] Failed: {failure_reason}", file=sys.stderr)
-
-                # Escalate to fallback model
-                if decision.fallback_model:
-                    print(f"[routing] Escalating to {decision.fallback_model}...",
-                          file=sys.stderr)
-                    self.escalation_count += 1
-
-                    # Record failure for learning
-                    self.router.record_outcome(
-                        decision.recommended_model,
-                        success=False,
-                        task_type=task_type
-                    )
-
-                    # Re-execute with better model
-                    result = await self._execute_with_model(
-                        request,
-                        decision.fallback_model,
-                        context,
-                        executor
-                    )
-
-                    # Record fallback success (assume success after escalation)
-                    self.router.record_outcome(
-                        decision.fallback_model,
-                        success=True,
-                        task_type=task_type
-                    )
-                else:
-                    # No fallback, return failed result
-                    print("[routing] No fallback model available", file=sys.stderr)
-                    self.router.record_outcome(
-                        decision.recommended_model,
-                        success=False,
-                        task_type=task_type
-                    )
-                    return result
-            else:
-                # Validation passed
-                self.router.record_outcome(
-                    decision.recommended_model,
-                    success=True,
-                    task_type=task_type
-                )
-        else:
-            # No validation criteria, assume success
+        # If no validation criteria, assume success
+        if not decision.validation_criteria:
             self.router.record_outcome(
-                decision.recommended_model,
-                success=True,
-                task_type=task_type
+                decision.recommended_model, success=True, task_type=task_type
+            )
+            return result
+
+        # Validate
+        is_valid, failure_reason = self.validator.validate_result(
+            result, decision.validation_criteria, context
+        )
+
+        if is_valid:
+            self.router.record_outcome(
+                decision.recommended_model, success=True, task_type=task_type
+            )
+            return result
+
+        # Validation failed — walk the fallback chain
+        print(f"[validation] Failed: {failure_reason}", file=sys.stderr)
+        self.router.record_outcome(
+            decision.recommended_model, success=False, task_type=task_type
+        )
+
+        if not decision.fallback_chain:
+            print("[routing] No fallback chain available", file=sys.stderr)
+            return result
+
+        self.escalation_count += 1
+        last_failure_reason = failure_reason
+
+        for fallback_model in decision.fallback_chain:
+            # Check if this tier should be skipped based on the failure
+            if self.validator.should_skip_tier(last_failure_reason, fallback_model):
+                print(f"[routing] Skipping {fallback_model} — failure exceeds its tier",
+                      file=sys.stderr)
+                continue
+
+            print(f"[routing] Escalating to {fallback_model}...", file=sys.stderr)
+            escalation_path.append(fallback_model)
+
+            result = await self._execute_with_model(
+                request, fallback_model, context, executor
             )
 
+            is_valid, failure_reason = self.validator.validate_result(
+                result, decision.validation_criteria, context
+            )
+
+            if is_valid:
+                self.router.record_outcome(
+                    fallback_model, success=True, task_type=task_type
+                )
+                print(f"[routing] Escalation path: {' → '.join(escalation_path)}",
+                      file=sys.stderr)
+                return result
+
+            # This tier also failed — record and continue
+            print(f"[validation] {fallback_model} also failed: {failure_reason}",
+                  file=sys.stderr)
+            self.router.record_outcome(
+                fallback_model, success=False, task_type=task_type
+            )
+            last_failure_reason = failure_reason
+
+        # All tiers exhausted
+        print(f"[routing] All tiers exhausted. Path: {' → '.join(escalation_path)}",
+              file=sys.stderr)
         return result
 
     async def _execute_with_model(
@@ -776,7 +840,7 @@ def main():
         decision = router.route_with_confidence(args.request)
         print(f"Model: {decision.recommended_model}")
         print(f"Confidence: {decision.confidence.value}")
-        print(f"Fallback: {decision.fallback_model or 'None'}")
+        print(f"Fallback chain: {' → '.join(decision.fallback_chain) or 'None'}")
         print(f"Validation: {', '.join(decision.validation_criteria) or 'None'}")
         print(f"Reasoning: {decision.reasoning}")
 
@@ -871,8 +935,27 @@ def test_probabilistic_router() -> None:
         assert not is_valid
         print("  OK")
 
-        # Test 5: OptimisticExecutor
-        print("Test 5: OptimisticExecutor")
+        # Test 5: Fallback chain populated correctly
+        print("Test 5: Fallback chains")
+        decision = router.route_with_confidence("fix syntax error in main.py")
+        assert decision.fallback_chain == ["sonnet", "opus"], \
+            f"Mechanical task should have [sonnet, opus] chain, got {decision.fallback_chain}"
+
+        decision = router.route_with_confidence("find all Python files")
+        assert decision.fallback_chain == ["sonnet"], \
+            f"Read-only task should have [sonnet] chain, got {decision.fallback_chain}"
+
+        decision = router.route_with_confidence("prove this theorem is correct")
+        assert decision.fallback_chain == [], \
+            f"Opus task should have empty chain, got {decision.fallback_chain}"
+
+        decision = router.route_with_confidence("design the new authentication system")
+        assert decision.fallback_chain == ["opus"], \
+            f"Judgment task should have [opus] chain, got {decision.fallback_chain}"
+        print("  OK")
+
+        # Test 6: OptimisticExecutor — simple success
+        print("Test 6: OptimisticExecutor simple success")
 
         async def mock_executor(request, model, context):
             return {"status": "success", "model": model}
@@ -890,8 +973,113 @@ def test_probabilistic_router() -> None:
         assert result["status"] == "success"
         print("  OK")
 
-        # Test 6: Statistics
-        print("Test 6: Statistics")
+        # Test 7: Multi-step escalation (haiku fails → sonnet succeeds)
+        print("Test 7: Multi-step escalation")
+
+        call_log: List[str] = []
+
+        async def failing_haiku_executor(request, model, context):
+            call_log.append(model)
+            if model == "haiku":
+                return []  # Empty list — fails results_found validation
+            return ["found_result"]
+
+        executor2 = OptimisticExecutor(
+            ProbabilisticRouter(history_file=Path(tmpdir) / "test2.json"),
+            validator
+        )
+
+        async def run_escalation_test():
+            return await executor2.execute(
+                "find all Python files",
+                agent_executor=failing_haiku_executor
+            )
+
+        call_log.clear()
+        result = asyncio.run(run_escalation_test())
+        assert result == ["found_result"], f"Should get sonnet's result, got {result}"
+        assert call_log == ["haiku", "sonnet"], \
+            f"Should try haiku then sonnet, got {call_log}"
+        print("  OK")
+
+        # Test 8: Skip-tier escalation (reasoning failure skips sonnet → opus)
+        print("Test 8: Skip-tier escalation")
+
+        # Use a custom validator that produces reasoning-level failure reasons
+        class SkipTierValidator(ResultValidator):
+            def validate_result(self, result, validation_criteria, context):
+                if isinstance(result, dict) and result.get("status") == "success":
+                    return True, None
+                return False, "Tests failed. Assertion error: incorrect logic in algorithm"
+
+        skip_validator = SkipTierValidator()
+
+        async def reasoning_failure_executor(request, model, context):
+            call_log.append(model)
+            if model == "opus":
+                return {"status": "success", "model": model}
+            return {"status": "failed", "model": model}
+
+        executor3 = OptimisticExecutor(
+            ProbabilisticRouter(history_file=Path(tmpdir) / "test3.json"),
+            skip_validator
+        )
+
+        async def run_skip_test():
+            return await executor3.execute(
+                "fix syntax error in main.py",
+                agent_executor=reasoning_failure_executor
+            )
+
+        call_log.clear()
+        result = asyncio.run(run_skip_test())
+        assert result["model"] == "opus", f"Should reach opus, got {result}"
+        # Haiku should be tried, sonnet should be skipped, opus should succeed
+        assert "haiku" in call_log, f"Should try haiku first, got {call_log}"
+        assert "sonnet" not in call_log, \
+            f"Should skip sonnet due to reasoning failure, got {call_log}"
+        assert "opus" in call_log, f"Should escalate to opus, got {call_log}"
+        print("  OK")
+
+        # Test 9: Full chain exhaustion (all tiers fail)
+        print("Test 9: Full chain exhaustion")
+
+        async def always_fail_executor(request, model, context):
+            call_log.append(model)
+            return []  # Empty — always fails results_found
+
+        executor4 = OptimisticExecutor(
+            ProbabilisticRouter(history_file=Path(tmpdir) / "test4.json"),
+            validator
+        )
+
+        async def run_exhaust_test():
+            return await executor4.execute(
+                "find all Python files",
+                agent_executor=always_fail_executor
+            )
+
+        call_log.clear()
+        result = asyncio.run(run_exhaust_test())
+        assert result == [], "Should return last failed result"
+        assert call_log == ["haiku", "sonnet"], \
+            f"Should try haiku then sonnet (chain is [sonnet] for read-only), got {call_log}"
+        print("  OK")
+
+        # Test 10: should_skip_tier
+        print("Test 10: should_skip_tier")
+        # Mechanical failure → never skip
+        assert not validator.should_skip_tier("Python syntax error at line 5: invalid syntax", "sonnet")
+        assert not validator.should_skip_tier("No results found", "sonnet")
+        # Reasoning failure → skip sonnet
+        assert validator.should_skip_tier("Tests failed. Assertion error: incorrect logic", "sonnet")
+        assert validator.should_skip_tier("Unexpected behavior in output", "sonnet")
+        # Opus is never skipped
+        assert not validator.should_skip_tier("Fundamental design flaw detected", "opus")
+        print("  OK")
+
+        # Test 11: Statistics
+        print("Test 11: Statistics")
         stats = router.get_statistics()
         assert "haiku" in stats
         print("  OK")
