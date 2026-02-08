@@ -192,6 +192,33 @@ bash tests/test-routing-visibility.sh
 
 ---
 
+## Prerequisites
+
+**System tools:**
+
+| Tool | Purpose | Required |
+|------|---------|----------|
+| `python3` (3.12+) | Implementation modules, routing core | Yes |
+| `jq` | JSON processing in hooks | Yes |
+| `bash` | Hook scripts | Yes |
+| `git` | Cache invalidation, metrics | Yes |
+| `shellcheck` | Hook script linting (dev only) | No |
+
+**Python packages:**
+
+| Package | Purpose | Required |
+|---------|---------|----------|
+| `pyyaml` | Domain adapter YAML parsing | Yes |
+| `pytest` | Test suite | Dev only |
+
+**NixOS/Nix users:** All dependencies are provided by `flake.nix`:
+
+```bash
+nix develop  # or direnv allow
+```
+
+---
+
 ## Quick Start
 
 ### Test the Implementation

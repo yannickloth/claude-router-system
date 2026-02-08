@@ -14,14 +14,12 @@
       devShells.default = pkgs.mkShell {
         buildInputs = [
           pkgs.gh
+          pkgs.jq
           pkgs.shellcheck
           (pkgs.python312.withPackages (ps: with ps; [
-            networkx
             pyyaml
             pytest
           ]))
-          pkgs.bun
-          pkgs.nodejs
         ];
       };
     });

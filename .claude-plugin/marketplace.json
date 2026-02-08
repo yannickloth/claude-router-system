@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "infolead-claude-subscription-router",
-      "version": "1.3.3",
+      "version": "1.4.0",
       "author": {
         "name": "Yannick Loth"
       },

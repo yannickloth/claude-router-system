@@ -1,6 +1,6 @@
 {
   "name": "infolead-claude-subscription-router",
-  "version": "1.3.3",
+  "version": "1.4.0",
   "description": "Intelligent routing system for Claude Code with IVP-compliant architecture and visible advisory routing. Routes all requests through a transparent pre-router that provides real-time recommendations to both user and main Claude for optimal agent delegation.",
   "author": {
     "name": "Yannick Loth",
