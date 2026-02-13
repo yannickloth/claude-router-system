@@ -1,0 +1,8 @@
+{
+  "name": "infolead-utils",
+  "version": "1.0.0",
+  "description": "Utility hooks for context enhancement (datetime injection, etc.)",
+  "hooks": {
+    "UserPromptSubmit": "hooks/user-prompt-submit.sh"
+  }
+}

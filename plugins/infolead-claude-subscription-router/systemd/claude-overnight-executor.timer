@@ -1,0 +1,16 @@
+[Unit]
+Description=Claude Code Overnight Work Executor Timer
+Documentation=file://%h/code/claude-router-system/plugins/infolead-claude-subscription-router/docs/
+
+[Timer]
+# Run at 22:00 (10 PM) every night
+OnCalendar=*-*-* 22:00:00
+
+# Allow up to 15 minutes delay if system was off
+Persistent=true
+
+# Randomize start by up to 5 minutes to avoid thundering herd
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

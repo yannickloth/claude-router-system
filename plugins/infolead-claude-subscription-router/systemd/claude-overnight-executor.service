@@ -1,0 +1,28 @@
+[Unit]
+Description=Claude Code Overnight Work Executor
+Documentation=file://%h/code/claude-router-system/plugins/infolead-claude-subscription-router/docs/
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/code/claude-router-system/plugins/infolead-claude-subscription-router/scripts/overnight-executor.sh
+StandardOutput=append:%h/.claude/infolead-claude-subscription-router/logs/overnight-executor.log
+StandardError=append:%h/.claude/infolead-claude-subscription-router/logs/overnight-executor-error.log
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONPATH=%h/code/claude-router-system/plugins/infolead-claude-subscription-router/implementation"
+WorkingDirectory=%h/code/claude-router-system/plugins/infolead-claude-subscription-router
+
+# Security hardening
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.claude
+
+# Resource limits (prevent runaway execution)
+TimeoutStartSec=3h
+MemoryMax=2G
+CPUQuota=80%
+
+[Install]
+WantedBy=default.target
