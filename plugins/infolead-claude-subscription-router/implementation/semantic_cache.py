@@ -714,7 +714,7 @@ if __name__ == "__main__":
 
     # Create cache for other commands
     cache = SemanticCache(
-        cache_dir=Path.home() / ".claude" / "infolead-router" / "cache",
+        cache_dir=Path.home() / ".claude" / "infolead-claude-subscription-router" / "cache",
         similarity_threshold=0.85,
         ttl_days=30
     )

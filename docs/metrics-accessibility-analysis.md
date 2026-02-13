@@ -41,7 +41,7 @@ The metrics collector at `implementation/metrics_collector.py`:
 - Has a complete CLI with `main()` function
 - Supports commands: `compute`, `efficiency`, `dashboard`, `report`, `show`, `work`, `cleanup`
 - Works as a standalone Python script
-- Stores data in `~/.claude/infolead-router/metrics/`
+- Stores data in `~/.claude/infolead-claude-subscription-router/metrics/`
 - Does NOT have a shebang (`#!/usr/bin/env python3`)
 
 ### Current User Experience Gap

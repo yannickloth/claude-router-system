@@ -2,24 +2,24 @@
 
 **Date:** 2026-01-31
 **Status:** ✅ Complete
-**Prefix:** `infolead-router-`
+**Prefix:** `infolead-claude-subscription-router-`
 
-**Note:** This namespace configuration applies to the `infolead-claude-subscription-router` plugin. The file system paths use the `infolead-router-` prefix for brevity and clarity.
+**Note:** This namespace configuration applies to the `infolead-claude-subscription-router` plugin. The file system paths use the `infolead-claude-subscription-router-` prefix for brevity and clarity.
 
 ---
 
 ## Quick Reference
 
-### All Paths Use `infolead-router-` Prefix
+### All Paths Use `infolead-claude-subscription-router-` Prefix
 
 ```
 ~/.claude/
-├── infolead-router-state/          # Persistent state (work queue, sessions)
-├── infolead-router-logs/           # Log files (routing decisions, audits)
-├── infolead-router-cache/          # Semantic cache (agent results)
-├── infolead-router-memory/         # Cross-session memory
-├── infolead-router-rules/          # Domain-specific rules
-└── infolead-router-domains/        # Domain configurations
+├── infolead-claude-subscription-router-state/          # Persistent state (work queue, sessions)
+├── infolead-claude-subscription-router-logs/           # Log files (routing decisions, audits)
+├── infolead-claude-subscription-router-cache/          # Semantic cache (agent results)
+├── infolead-claude-subscription-router-memory/         # Cross-session memory
+├── infolead-claude-subscription-router-rules/          # Domain-specific rules
+└── infolead-claude-subscription-router-domains/        # Domain configurations
 ```
 
 ### Standard Claude Code Paths (Unchanged)
@@ -39,27 +39,27 @@
 ### One-Line Setup
 
 ```bash
-mkdir -p ~/.claude/infolead-router/{state,logs,cache,memory,rules,domains} && chmod 700 ~/.claude/infolead-router/{state,cache,memory,rules,domains} && chmod 755 ~/.claude/infolead-router/logs
+mkdir -p ~/.claude/infolead-claude-subscription-router/{state,logs,cache,memory,rules,domains} && chmod 700 ~/.claude/infolead-claude-subscription-router/{state,cache,memory,rules,domains} && chmod 755 ~/.claude/infolead-claude-subscription-router/logs
 ```
 
 ### Step-by-Step Setup
 
 ```bash
 # Create all directories
-mkdir -p ~/.claude/infolead-router/state
-mkdir -p ~/.claude/infolead-router/logs
-mkdir -p ~/.claude/infolead-router/cache
-mkdir -p ~/.claude/infolead-router/memory
-mkdir -p ~/.claude/infolead-router/rules
-mkdir -p ~/.claude/infolead-router/domains
+mkdir -p ~/.claude/infolead-claude-subscription-router/state
+mkdir -p ~/.claude/infolead-claude-subscription-router/logs
+mkdir -p ~/.claude/infolead-claude-subscription-router/cache
+mkdir -p ~/.claude/infolead-claude-subscription-router/memory
+mkdir -p ~/.claude/infolead-claude-subscription-router/rules
+mkdir -p ~/.claude/infolead-claude-subscription-router/domains
 
 # Set secure permissions
-chmod 700 ~/.claude/infolead-router/state
-chmod 755 ~/.claude/infolead-router/logs
-chmod 700 ~/.claude/infolead-router/cache
-chmod 700 ~/.claude/infolead-router/memory
-chmod 700 ~/.claude/infolead-router/rules
-chmod 700 ~/.claude/infolead-router/domains
+chmod 700 ~/.claude/infolead-claude-subscription-router/state
+chmod 755 ~/.claude/infolead-claude-subscription-router/logs
+chmod 700 ~/.claude/infolead-claude-subscription-router/cache
+chmod 700 ~/.claude/infolead-claude-subscription-router/memory
+chmod 700 ~/.claude/infolead-claude-subscription-router/rules
+chmod 700 ~/.claude/infolead-claude-subscription-router/domains
 ```
 
 ---
@@ -68,12 +68,12 @@ chmod 700 ~/.claude/infolead-router/domains
 
 | Resource | Full Path |
 |----------|-----------|
-| **Work Queue** | `~/.claude/infolead-router/state/work-queue.json` |
-| **Routing Log** | `~/.claude/infolead-router/logs/haiku-routing-decisions.log` |
-| **Cache Index** | `~/.claude/infolead-router/cache/cache_index.json` |
-| **Active Context** | `~/.claude/infolead-router/memory/active-context.json` |
-| **LaTeX Rules** | `~/.claude/infolead-router/rules/latex-research.yaml` |
-| **Domain Configs** | `~/.claude/infolead-router/domains/` |
+| **Work Queue** | `~/.claude/infolead-claude-subscription-router/state/work-queue.json` |
+| **Routing Log** | `~/.claude/infolead-claude-subscription-router/logs/haiku-routing-decisions.log` |
+| **Cache Index** | `~/.claude/infolead-claude-subscription-router/cache/cache_index.json` |
+| **Active Context** | `~/.claude/infolead-claude-subscription-router/memory/active-context.json` |
+| **LaTeX Rules** | `~/.claude/infolead-claude-subscription-router/rules/latex-research.yaml` |
+| **Domain Configs** | `~/.claude/infolead-claude-subscription-router/domains/` |
 
 ---
 
@@ -83,14 +83,14 @@ chmod 700 ~/.claude/infolead-router/domains
 
 ```python
 # Default state file location
-state_file = Path.home() / ".claude" / "infolead-router-state" / "work-queue.json"
+state_file = Path.home() / ".claude" / "infolead-claude-subscription-router-state" / "work-queue.json"
 ```
 
 ### semantic_cache.py
 
 ```python
 # Default cache directory
-cache_dir = Path.home() / ".claude" / "infolead-router-cache"
+cache_dir = Path.home() / ".claude" / "infolead-claude-subscription-router-cache"
 ```
 
 ---
@@ -101,12 +101,12 @@ cache_dir = Path.home() / ".claude" / "infolead-router-cache"
 
 ```bash
 # Verify directories exist
-ls -ld ~/.claude/infolead-router-* 2>/dev/null
+ls -ld ~/.claude/infolead-claude-subscription-router-* 2>/dev/null
 
 # Verify permissions
-ls -la ~/.claude/infolead-router/state
-ls -la ~/.claude/infolead-router/logs
-ls -la ~/.claude/infolead-router/cache
+ls -la ~/.claude/infolead-claude-subscription-router/state
+ls -la ~/.claude/infolead-claude-subscription-router/logs
+ls -la ~/.claude/infolead-claude-subscription-router/cache
 ```
 
 ### Test Implementation
@@ -122,7 +122,7 @@ print(f"Work queue: {coord.state_file}")
 print(f"Exists: {coord.state_file.exists()}")
 
 # Test semantic cache
-cache = SemanticCache(Path.home() / ".claude" / "infolead-router-cache")
+cache = SemanticCache(Path.home() / ".claude" / "infolead-claude-subscription-router-cache")
 print(f"Cache dir: {cache.cache_dir}")
 print(f"Exists: {cache.cache_dir.exists()}")
 ```
@@ -131,7 +131,7 @@ print(f"Exists: {cache.cache_dir.exists()}")
 
 ## Rationale
 
-### Why `infolead-router-`?
+### Why `infolead-claude-subscription-router-`?
 
 1. **Organization**: `infolead` identifies the organization/project
 2. **Subsystem**: `router` identifies this specific subsystem
@@ -177,7 +177,7 @@ infolead-                           # Organization namespace
 ```bash
 # Can coexist with other systems
 ~/.claude/
-├── infolead-router-state/         # This system
+├── infolead-claude-subscription-router-state/         # This system
 ├── other-project-state/           # Other project
 └── personal-notes/                # Personal data
 ```
@@ -186,7 +186,7 @@ infolead-                           # Organization namespace
 
 ```bash
 # Path clearly shows what owns it
-~/.claude/infolead-router/cache/
+~/.claude/infolead-claude-subscription-router/cache/
           ^^^^^^^^ ^^^^^^ ^^^^^
           org      subsys resource
 ```
@@ -196,7 +196,7 @@ infolead-                           # Organization namespace
 ```bash
 # Easy to add new infolead subsystems
 ~/.claude/
-├── infolead-router-*/             # Router system (current)
+├── infolead-claude-subscription-router-*/             # Router system (current)
 ├── infolead-agent-*/              # Agent system (future)
 └── infolead-workflow-*/           # Workflow system (future)
 ```
@@ -212,15 +212,15 @@ If you have existing data in old paths:
 cd ~/.claude
 
 # From /tmp/ paths (if any exist)
-[ -f /tmp/work-queue.json ] && cp /tmp/work-queue.json infolead-router-state/
+[ -f /tmp/work-queue.json ] && cp /tmp/work-queue.json infolead-claude-subscription-router-state/
 
 # From old infolead- paths (if migrating from earlier version)
-[ -d infolead-state ] && mv infolead-state infolead-router-state
-[ -d infolead-logs ] && mv infolead-logs infolead-router-logs
-[ -d infolead-cache ] && mv infolead-cache infolead-router-cache
-[ -d infolead-memory ] && mv infolead-memory infolead-router-memory
-[ -d infolead-rules ] && mv infolead-rules infolead-router-rules
-[ -d infolead-domains ] && mv infolead-domains infolead-router-domains
+[ -d infolead-state ] && mv infolead-state infolead-claude-subscription-router-state
+[ -d infolead-logs ] && mv infolead-logs infolead-claude-subscription-router-logs
+[ -d infolead-cache ] && mv infolead-cache infolead-claude-subscription-router-cache
+[ -d infolead-memory ] && mv infolead-memory infolead-claude-subscription-router-memory
+[ -d infolead-rules ] && mv infolead-rules infolead-claude-subscription-router-rules
+[ -d infolead-domains ] && mv infolead-domains infolead-claude-subscription-router-domains
 ```
 
 ---
@@ -239,4 +239,4 @@ cd ~/.claude
 
 **Last Updated:** 2026-01-31
 **Approved:** Production-ready
-**Namespace:** `infolead-router-` (final)
+**Namespace:** `infolead-claude-subscription-router-` (final)

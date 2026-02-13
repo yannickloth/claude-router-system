@@ -61,7 +61,7 @@ class DomainConfig:
 
 @dataclass
 class UserRules:
-    """User-specific rules from ~/.claude/infolead-router/rules/."""
+    """User-specific rules from ~/.claude/infolead-claude-subscription-router/rules/."""
     safety: Dict[str, List[str]]
     routing: Dict[str, Any]
     quotas: Dict[str, Any]
@@ -70,7 +70,7 @@ class UserRules:
 
 
 # Default user rules directory
-USER_RULES_DIR = Path.home() / ".claude" / "infolead-router" / "rules"
+USER_RULES_DIR = Path.home() / ".claude" / "infolead-claude-subscription-router" / "rules"
 
 
 class DomainAdapter:
@@ -87,7 +87,7 @@ class DomainAdapter:
             config_dir: Directory containing domain YAML files.
                        Defaults to ../config/domains/ relative to this file.
             user_rules_dir: Directory containing user rules YAML files.
-                           Defaults to ~/.claude/infolead-router/rules/
+                           Defaults to ~/.claude/infolead-claude-subscription-router/rules/
         """
         if config_dir is None:
             # Default to config/domains/ in project root
@@ -117,7 +117,7 @@ class DomainAdapter:
                 print(f"Warning: Failed to load {yaml_file}: {e}", file=sys.stderr)
 
     def _load_user_rules(self) -> None:
-        """Load user-specific rules from ~/.claude/infolead-router/rules/."""
+        """Load user-specific rules from ~/.claude/infolead-claude-subscription-router/rules/."""
         if not self.user_rules_dir.exists():
             return
 

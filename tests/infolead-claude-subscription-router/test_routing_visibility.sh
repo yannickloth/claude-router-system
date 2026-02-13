@@ -14,7 +14,7 @@ set -euo pipefail
 PLUGIN_DIR="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$(readlink -f "$0")")")}"
 ROUTING_CORE="$PLUGIN_DIR/implementation/routing_core.py"
 HOOK_SCRIPT="$PLUGIN_DIR/hooks/user-prompt-submit.sh"
-METRICS_DIR="${HOME}/.claude/infolead-router/metrics"
+METRICS_DIR="${HOME}/.claude/infolead-claude-subscription-router/metrics"
 TODAY=$(date +%Y-%m-%d)
 METRICS_FILE="$METRICS_DIR/${TODAY}.jsonl"
 

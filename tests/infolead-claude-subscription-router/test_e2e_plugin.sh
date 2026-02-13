@@ -373,7 +373,7 @@ verify_metrics_created() {
 
     local today
     today=$(date +%Y-%m-%d)
-    local metrics_file="$HOME/.claude/infolead-router/metrics/${today}.jsonl"
+    local metrics_file="$HOME/.claude/infolead-claude-subscription-router/metrics/${today}.jsonl"
 
     if [[ -f "$metrics_file" ]]; then
         # Verify it's valid JSONL
@@ -505,7 +505,7 @@ from pathlib import Path
 sys.path.insert(0, '.')
 from session_state_manager import SessionStateManager
 
-manager = SessionStateManager(memory_dir=Path('$TEST_HOME/.claude/infolead-router/memory'))
+manager = SessionStateManager(memory_dir=Path('$TEST_HOME/.claude/infolead-claude-subscription-router/memory'))
 manager.update_focus('Testing persistence')
 manager.add_active_agent('test-agent')
 " 2>/dev/null
@@ -518,7 +518,7 @@ from pathlib import Path
 sys.path.insert(0, '.')
 from session_state_manager import SessionStateManager
 
-manager = SessionStateManager(memory_dir=Path('$TEST_HOME/.claude/infolead-router/memory'))
+manager = SessionStateManager(memory_dir=Path('$TEST_HOME/.claude/infolead-claude-subscription-router/memory'))
 state = manager.get_current_state()
 print(state.current_focus)
 " 2>/dev/null)

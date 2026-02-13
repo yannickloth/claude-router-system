@@ -101,7 +101,7 @@ Main Claude sees the pre-router's recommendation as input but makes the final de
 
 All routing decisions are tracked to:
 ```
-~/.claude/infolead-router/metrics/YYYY-MM-DD.jsonl
+~/.claude/infolead-claude-subscription-router/metrics/YYYY-MM-DD.jsonl
 ```
 
 **What's logged:**
@@ -178,7 +178,7 @@ export CLAUDE_PLUGIN_ROOT="$PWD"
 echo "Fix typo in README.md" | bash hooks/user-prompt-submit.sh
 
 # Check metrics
-cat ~/.claude/infolead-router/metrics/$(date +%Y-%m-%d).jsonl | tail -5
+cat ~/.claude/infolead-claude-subscription-router/metrics/$(date +%Y-%m-%d).jsonl | tail -5
 
 # Run comprehensive tests
 bash tests/test-routing-visibility.sh
@@ -266,11 +266,74 @@ cd ~/.claude
 git clone https://github.com/yannickloth/claude-router-system.git marketplace
 
 # Symlink the plugin
-ln -s ~/.claude/marketplace/plugins/infolead-claude-subscription-router ~/.claude/plugins/
+ln -s ~/.claude/marketplace/plugins/infolead-claude-subscription-router~/.claude/plugins/
 
 # Symlink agents to global agents directory
 ln -s ~/.claude/plugins/infolead-claude-subscription-router/agents/* ~/.claude/agents/
 ```
+
+---
+
+## Update
+
+Keep your plugin up to date with the latest features and bug fixes:
+
+```bash
+cd ~/.claude/plugins/infolead-claude-subscription-router
+./scripts/update.sh
+```
+
+**What gets updated:**
+
+- Plugin code (via git pull)
+- Hooks in all settings files where currently installed
+- Skills (if changed and installed)
+- Systemd services (if changed and installed)
+
+**Options:**
+
+```bash
+./scripts/update.sh --dry-run     # Preview changes without applying
+./scripts/update.sh --skip-git    # Only update components, skip git pull
+./scripts/update.sh --force       # Force update even if unchanged
+```
+
+**When to update:**
+
+- After a new release is announced
+- When you encounter bugs that have been fixed
+- To get new features or performance improvements
+
+---
+
+## Uninstall
+
+To completely remove the plugin:
+
+```bash
+cd ~/.claude/plugins/infolead-claude-subscription-router
+./scripts/uninstall.sh
+```
+
+**What gets removed:**
+
+- Plugin hooks from all settings files (local, project, global)
+- Write/Edit permissions from all settings files
+- Overnight execution system (skills, systemd, state/logs)
+- Plugin and agent symlinks (if manually installed)
+
+**Options:**
+
+```bash
+./scripts/uninstall.sh --dry-run     # Preview what would be removed
+./scripts/uninstall.sh --keep-data   # Keep metrics, state, and logs
+```
+
+**After uninstall:**
+
+1. Restart Claude Code
+2. All plugin functionality will be removed
+3. To reinstall: `/plugin install infolead-claude-subscription-router`
 
 ---
 
@@ -665,7 +728,7 @@ Cost Analysis (vs sonnet baseline):
 ### Metrics Storage
 
 - **Project logs**: `.claude/logs/routing.log` - Per-project routing decisions
-- **Global metrics**: `~/.claude/infolead-router/metrics/YYYY-MM-DD.jsonl` - Daily aggregated metrics
+- **Global metrics**: `~/.claude/infolead-claude-subscription-router/metrics/YYYY-MM-DD.jsonl` - Daily aggregated metrics
 
 ### Hooks
 

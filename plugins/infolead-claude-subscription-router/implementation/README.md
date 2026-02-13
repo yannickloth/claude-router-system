@@ -238,9 +238,9 @@ pip install sentence-transformers
 ### 2. Setup Directories
 
 ```bash
-mkdir -p ~/.claude/infolead-router/{state,logs,cache,memory}
-chmod 700 ~/.claude/{infolead-router-state,infolead-router-cache,infolead-router-memory}
-chmod 755 ~/.claude/infolead-router/logs
+mkdir -p ~/.claude/infolead-claude-subscription-router/{state,logs,cache,memory}
+chmod 700 ~/.claude/{infolead-claude-subscription-router-state,infolead-claude-subscription-router-cache,infolead-claude-subscription-router-memory}
+chmod 755 ~/.claude/infolead-claude-subscription-router/logs
 ```
 
 ### 3. Verify Installation
@@ -404,8 +404,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 **Solution:**
 ```bash
-chmod 700 ~/.claude/infolead-router/state
-chmod 600 ~/.claude/infolead-router/state/work-queue.json
+chmod 700 ~/.claude/infolead-claude-subscription-router/state
+chmod 600 ~/.claude/infolead-claude-subscription-router/state/work-queue.json
 ```
 
 ### Cache not hitting

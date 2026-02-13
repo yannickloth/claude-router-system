@@ -4,7 +4,7 @@ Quota Tracker - Track and enforce API quota usage across sessions.
 Implements FR-6.1 (Quota Tracking) and FR-6.2 (Quota Limit Enforcement)
 from routing-system-requirements.md.
 
-State file: ~/.claude/infolead-router/state/quota-tracking.json
+State file: ~/.claude/infolead-claude-subscription-router/state/quota-tracking.json
 
 Usage:
     tracker = QuotaTracker()
@@ -30,7 +30,7 @@ from typing import Dict, Optional
 from file_locking import locked_state_file
 
 # State directory
-STATE_DIR = Path.home() / ".claude" / "infolead-router" / "state"
+STATE_DIR = Path.home() / ".claude" / "infolead-claude-subscription-router" / "state"
 QUOTA_FILE = STATE_DIR / "quota-tracking.json"
 
 # Subscription tier limits (Max 5x tier - adjustable)
@@ -65,7 +65,7 @@ class QuotaTracker:
         Initialize quota tracker.
 
         Args:
-            state_file: Path to state file (default: ~/.claude/infolead-router/state/quota-tracking.json)
+            state_file: Path to state file (default: ~/.claude/infolead-claude-subscription-router/state/quota-tracking.json)
         """
         self.state_file = state_file or QUOTA_FILE
         self.state_file.parent.mkdir(parents=True, exist_ok=True, mode=0o700)

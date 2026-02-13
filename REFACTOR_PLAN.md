@@ -18,7 +18,7 @@
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                     infolead-router                         │
+│                     infolead-claude-subscription-router                         │
 │  - Core routing logic (router, router-escalation)           │
 │  - General agents (haiku/sonnet/opus-general)               │
 │  - Cost optimization (strategy-advisor)                     │
@@ -96,7 +96,7 @@ infolead-claudecode-marketplace/
 
 ## Plugin Specifications
 
-### Core Plugin: `infolead-router`
+### Core Plugin: `infolead-claude-subscription-router`
 
 **Purpose:** Cost-optimized routing infrastructure. Required for all projects using this system.
 
@@ -177,7 +177,7 @@ plugins/infolead-claude-subscription-router/
 5. **Speed** — Parallel analysis of multiple files; humans are sequential
 6. **Documentation** — Agents produce structured reports; humans often skip writeup
 
-**Requires:** `infolead-router`
+**Requires:** `infolead-claude-subscription-router`
 
 **Version:** 1.0.0
 
@@ -218,7 +218,7 @@ plugins/infolead-dev-tools/
 3. **Cross-file correlation** — History analysis sees connections human misses
 4. **Automation** — Release checklist executed consistently every time
 
-**Requires:** `infolead-router`
+**Requires:** `infolead-claude-subscription-router`
 
 **Version:** 1.0.0
 
@@ -268,7 +268,7 @@ plugins/infolead-git-tools/
 - `section-review.md`
 - `full-document-review.md`
 
-**Requires:** `infolead-router`
+**Requires:** `infolead-claude-subscription-router`
 
 **Version:** 1.0.0
 
@@ -301,7 +301,7 @@ plugins/infolead-latex-tools/
 - `benefit-navigator.md` — Disability documentation
 - `caregiver-coordinator.md` — Care team instructions
 
-**Requires:** `infolead-router`
+**Requires:** `infolead-claude-subscription-router`
 
 **Version:** 1.0.0
 
@@ -512,7 +512,7 @@ cp ../health-me-cfs/.claude/agents/caregiver-coordinator.md plugins/infolead-med
 
 ```json
 {
-  "name": "infolead-router",
+  "name": "infolead-claude-subscription-router",
   "version": "2.0.0",
   "description": "Cost-optimized routing with general agents",
   "author": { "name": "Yannick Loth" },
@@ -530,7 +530,7 @@ cp ../health-me-cfs/.claude/agents/caregiver-coordinator.md plugins/infolead-med
   "description": "Git operations and version control workflows",
   "author": { "name": "Yannick Loth" },
   "license": "MIT",
-  "requires": ["infolead-router"]
+  "requires": ["infolead-claude-subscription-router"]
 }
 ```
 
@@ -582,7 +582,7 @@ rm -rf config/domains/
 
 ```text
 ┌─────────────────────────────────────────┐
-│            infolead-router              │
+│            infolead-claude-subscription-router              │
 │  (router, escalation, general agents,   │
 │   strategy, planner, work-coordinator)  │
 └────────────────────┬────────────────────┘

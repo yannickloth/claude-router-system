@@ -195,7 +195,7 @@ Defined in `routing_core.py`:
 
 ## Metrics
 
-Metrics are logged to `~/.claude/infolead-router/metrics/YYYY-MM-DD.jsonl`:
+Metrics are logged to `~/.claude/infolead-claude-subscription-router/metrics/YYYY-MM-DD.jsonl`:
 
 ```json
 {
@@ -215,13 +215,13 @@ Metrics are logged to `~/.claude/infolead-router/metrics/YYYY-MM-DD.jsonl`:
 
 ```bash
 # Count routing decisions
-jq -r '.recommendation.agent' ~/.claude/infolead-router/metrics/*.jsonl | sort | uniq -c
+jq -r '.recommendation.agent' ~/.claude/infolead-claude-subscription-router/metrics/*.jsonl | sort | uniq -c
 
 # Average confidence
-jq -r '.recommendation.confidence' ~/.claude/infolead-router/metrics/*.jsonl | awk '{sum+=$1; count++} END {print sum/count}'
+jq -r '.recommendation.confidence' ~/.claude/infolead-claude-subscription-router/metrics/*.jsonl | awk '{sum+=$1; count++} END {print sum/count}'
 
 # Escalation rate
-jq -r 'select(.recommendation.agent == "escalate") | .recommendation.reason' ~/.claude/infolead-router/metrics/*.jsonl | wc -l
+jq -r 'select(.recommendation.agent == "escalate") | .recommendation.reason' ~/.claude/infolead-claude-subscription-router/metrics/*.jsonl | wc -l
 ```
 
 ---
@@ -289,7 +289,7 @@ Verify:
 
 ```bash
 # Clean test artifacts
-rm -rf ~/.claude/infolead-router/metrics/
+rm -rf ~/.claude/infolead-claude-subscription-router/metrics/
 
 # Re-run tests
 python3 tests/test_routing_core.py

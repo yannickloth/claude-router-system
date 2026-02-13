@@ -34,7 +34,7 @@ Manages parallel work queue with WIP (Work In Progress) limits to ensure 90%+ ta
 
 **Backend:** `implementation/work_coordinator.py`
 
-**State file:** `~/.claude/infolead-router/state/work-queue.json`
+**State file:** `~/.claude/infolead-claude-subscription-router/state/work-queue.json`
 
 **Data structure:**
 ```json

@@ -548,7 +548,7 @@ tools: Read, Write, Bash, Task
 
 ## State Management
 
-Maintains work queue in `~/.claude/infolead-router/state/work-queue.json`:
+Maintains work queue in `~/.claude/infolead-claude-subscription-router/state/work-queue.json`:
 
 ```json
 {
@@ -941,7 +941,7 @@ class ContextManager:
 **Solution**: Structured memory files + pre-session loading
 
 ```
-~/.claude/infolead-router/memory/
+~/.claude/infolead-claude-subscription-router/memory/
 ├── active-context.json          # Current work-in-progress
 ├── completed-work.json          # Recent completions (last 7 days)
 ├── domain-preferences.json      # User preferences per domain
@@ -991,7 +991,7 @@ Create file: `.claude/hooks/load-session-memory.sh`
 set -euo pipefail
 # Automatically loads relevant memory at session start
 
-MEMORY_DIR="$HOME/.claude/infolead-router/memory"
+MEMORY_DIR="$HOME/.claude/infolead-claude-subscription-router/memory"
 ACTIVE_CONTEXT="$MEMORY_DIR/active-context.json"
 
 # Ensure memory directory exists
@@ -1020,14 +1020,14 @@ fi
 **Dynamic rule loading per domain:**
 
 ```
-~/.claude/infolead-router/rules/
+~/.claude/infolead-claude-subscription-router/rules/
 ├── global.yaml              # Always applied
 ├── latex-research.yaml      # LaTeX-specific
 ├── software-dev.yaml        # Dev-specific
 └── knowledge-mgmt.yaml      # KM-specific
 ```
 
-**Example: LaTeX Research Rules** (`.claude/infolead-router/rules/latex-research.yaml`):
+**Example: LaTeX Research Rules** (`.claude/infolead-claude-subscription-router/rules/latex-research.yaml`):
 
 ```yaml
 rules:
@@ -2012,8 +2012,8 @@ if [ -n "$MODIFIED_FILES" ]; then
     echo "📝 Files modified - checking cache invalidation..."
 
     # Ensure cache directory exists
-    mkdir -p "$HOME/.claude/infolead-router/cache"
-    chmod 700 "$HOME/.claude/infolead-router/cache"
+    mkdir -p "$HOME/.claude/infolead-claude-subscription-router/cache"
+    chmod 700 "$HOME/.claude/infolead-claude-subscription-router/cache"
 
     # Call Python cache invalidation (with error handling)
     python3 <<'EOF' || echo "⚠️  Warning: Cache invalidation failed"
@@ -3601,14 +3601,14 @@ All implementation modules are complete and production-ready. See `../implementa
 
 **Solution 7: Session State Persistence**
 - ✅ Implemented in `session_state_manager.py`
-- ✅ State directory: `~/.claude/infolead-router/memory/`
+- ✅ State directory: `~/.claude/infolead-claude-subscription-router/memory/`
 - ✅ Session hooks: `load-session-state.sh`, `save-session-state.sh`
 - ✅ Search history, decisions, and active context tracking
 - ✅ Cross-session state restoration tested
 
 **Solution 5: Semantic Cache (Initial)**
 - ✅ Implemented in `semantic_cache.py`
-- ✅ Cache directory: `~/.claude/infolead-router/cache/`
+- ✅ Cache directory: `~/.claude/infolead-claude-subscription-router/cache/`
 - ✅ TF-IDF similarity matching with sentence-transformers support
 - ✅ Cache invalidation hook: `cache-invalidation.sh`
 - ✅ Hit rate tracking and quota savings metrics
@@ -3647,7 +3647,7 @@ All implementation modules are complete and production-ready. See `../implementa
 **Solution 3: Domain Adaptation**
 - ✅ Implemented in `domain_adapter.py`
 - ✅ Domain configs: `LaTeXDomainConfig`, `DevDomainConfig`, `KnowledgeDomainConfig`
-- ✅ Rules directory: `~/.claude/infolead-router/rules/`
+- ✅ Rules directory: `~/.claude/infolead-claude-subscription-router/rules/`
 - ✅ Domain-specific WIP limits and quality gates
 - ✅ Comprehensive testing
 
@@ -3728,7 +3728,7 @@ The metrics system provides visibility into routing efficiency and solution perf
 
 ### Data Model
 
-**Storage:** `~/.claude/infolead-router/metrics/YYYY-MM-DD.jsonl`
+**Storage:** `~/.claude/infolead-claude-subscription-router/metrics/YYYY-MM-DD.jsonl`
 
 **Two record types** distinguished by `record_type` field:
 

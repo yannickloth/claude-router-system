@@ -6,7 +6,7 @@ Implements Solution 6 from claude-code-architecture.md:
 - Post-execution validation
 - Optimistic execution with escalation
 
-State file: ~/.claude/infolead-router/state/routing-history.json
+State file: ~/.claude/infolead-claude-subscription-router/state/routing-history.json
 
 Usage:
     router = ProbabilisticRouter()
@@ -35,7 +35,7 @@ from file_locking import locked_state_file
 
 
 # State directory
-STATE_DIR = Path.home() / ".claude" / "infolead-router" / "state"
+STATE_DIR = Path.home() / ".claude" / "infolead-claude-subscription-router" / "state"
 HISTORY_FILE = STATE_DIR / "routing-history.json"
 
 

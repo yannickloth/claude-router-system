@@ -23,7 +23,7 @@ from typing import Any, Optional, List
 from file_locking import locked_state_file
 
 # State directory
-MEMORY_DIR = Path.home() / ".claude" / "infolead-router" / "memory"
+MEMORY_DIR = Path.home() / ".claude" / "infolead-claude-subscription-router" / "memory"
 
 # State files
 SESSION_STATE_FILE = MEMORY_DIR / "session-state.json"

@@ -1,89 +1,101 @@
 #!/bin/bash
-# Morning Briefing Hook
-# Displays overnight work results, quota status, and priority tasks
 #
-# Trigger: Session start (morning hours only)
-# Change Driver: UX_REQUIREMENTS
+# morning-briefing.sh
+#
+# SessionStart hook to display overnight execution results
+#
+# Trigger: SessionStart
+# Change Driver: USER_FEEDBACK
+# Changes when: Morning briefing format or display logic changes
 
 set -euo pipefail
 
-# Only run during morning hours (6:00-11:59)
-CURRENT_HOUR=$(date +%H)
-if [ "$CURRENT_HOUR" -lt 6 ] || [ "$CURRENT_HOUR" -ge 12 ]; then
-    exit 0
-fi
-
-# Check if already shown today
-MARKER_DIR="$HOME/.claude/infolead-claude-subscription-router/state"
-MARKER_FILE="$MARKER_DIR/.morning-briefing-$(date +%Y%m%d)"
-mkdir -p "$MARKER_DIR"
-
-if [ -f "$MARKER_FILE" ]; then
-    exit 0
-fi
+# Configuration
+STATE_DIR="$HOME/.claude/infolead-claude-subscription-router/state"
+RESULTS_DIR="$STATE_DIR/overnight-results"
+QUEUE_FILE="$STATE_DIR/temporal-work-queue.json"
 
 # Check for jq
 if ! command -v jq &> /dev/null; then
     exit 0
 fi
 
-MEMORY_DIR="$HOME/.claude/infolead-claude-subscription-router/memory"
-LOGS_DIR="$HOME/.claude/infolead-claude-subscription-router/logs"
-WORK_LOG="$MEMORY_DIR/completed-work.json"
-SESSION_STATE="$MEMORY_DIR/session-state.json"
+# Only show briefing during morning hours (6 AM - 11 AM)
+HOUR=$(date +%H)
+if [ "$HOUR" -lt 6 ] || [ "$HOUR" -gt 11 ]; then
+    exit 0
+fi
 
-echo "" >&2
-echo "----------------------------------------" >&2
-echo "Morning Briefing - $(date '+%A, %B %d')" >&2
-echo "----------------------------------------" >&2
-echo "" >&2
+# Check if queue file exists
+if [ ! -f "$QUEUE_FILE" ]; then
+    exit 0
+fi
 
-# ===== Overnight Work Results =====
-if [ -f "$WORK_LOG" ]; then
-    YESTERDAY=$(date -d "yesterday" +%Y-%m-%d 2>/dev/null || date -v-1d +%Y-%m-%d 2>/dev/null || echo "")
-    if [ -n "$YESTERDAY" ]; then
-        COMPLETED_COUNT=$(jq --arg date "$YESTERDAY" '[.[] | select(.completed_at | startswith($date))] | length' "$WORK_LOG" 2>/dev/null || echo "0")
+# Check for completed overnight work
+COMPLETED_COUNT=$(jq '[.completed_overnight // empty] | length' "$QUEUE_FILE" 2>/dev/null || echo "0")
+FAILED_COUNT=$(jq '[.failed_overnight // empty] | length' "$QUEUE_FILE" 2>/dev/null || echo "0")
 
-        if [ "$COMPLETED_COUNT" -gt 0 ]; then
-            echo "Overnight: $COMPLETED_COUNT tasks completed" >&2
-            jq -r --arg date "$YESTERDAY" '.[] | select(.completed_at | startswith($date)) | "  - \(.task_name // .description)"' "$WORK_LOG" 2>/dev/null | head -3 >&2
-            echo "" >&2
-        fi
+# If no overnight work completed or failed, exit
+if [ "$COMPLETED_COUNT" = "0" ] && [ "$FAILED_COUNT" = "0" ]; then
+    exit 0
+fi
+
+# Display morning briefing
+cat <<EOF
+
+═══════════════════════════════════════════════════════════
+🌅 Morning Briefing - Overnight Work Results
+═══════════════════════════════════════════════════════════
+
+Date: $(date '+%Y-%m-%d %A')
+
+EOF
+
+# Show completed work
+if [ "$COMPLETED_COUNT" -gt 0 ]; then
+    echo "✅ Completed overnight: $COMPLETED_COUNT items"
+    echo ""
+
+    jq -r '
+        .completed_overnight[]? //empty |
+        "  ✓ [\(.id)] \(.description)"
+        + "\n    Project: \(.project_name // "unknown")"
+        + "\n    Result: " + (.result[:100] // "No result")
+        + (if (.result | length) > 100 then "..." else "" end)
+        + "\n"
+    ' "$QUEUE_FILE" 2>/dev/null || true
+fi
+
+# Show failed work
+if [ "$FAILED_COUNT" -gt 0 ]; then
+    echo ""
+    echo "❌ Failed overnight: $FAILED_COUNT items"
+    echo ""
+
+    jq -r '
+        .failed_overnight[]? //empty |
+        "  ✗ [\(.id)] \(.description)"
+        + "\n    Project: \(.project_name // "unknown")"
+        + "\n    Error: " + (.error // "Unknown error")
+        + "\n"
+    ' "$QUEUE_FILE" 2>/dev/null || true
+fi
+
+# Show where to find full results
+if [ -d "$RESULTS_DIR" ]; then
+    LATEST_RESULT=$(ls -t "$RESULTS_DIR"/results-*.json 2>/dev/null | head -1 || echo "")
+    if [ -n "$LATEST_RESULT" ]; then
+        echo ""
+        echo "Full results: $LATEST_RESULT"
     fi
 fi
 
-# ===== Work in Progress =====
-if [ -f "$SESSION_STATE" ]; then
-    WIP_COUNT=$(jq '.work_in_progress | length' "$SESSION_STATE" 2>/dev/null || echo "0")
+cat <<EOF
 
-    if [ "$WIP_COUNT" -gt 0 ]; then
-        echo "In progress: $WIP_COUNT tasks" >&2
-        jq -r '.work_in_progress[] | "  - \(.task_name // .description)"' "$SESSION_STATE" 2>/dev/null | head -3 >&2
-        echo "" >&2
-    fi
+Type '/quota' to see current quota usage
 
-    # Show current focus
-    FOCUS=$(jq -r '.current_focus // ""' "$SESSION_STATE" 2>/dev/null)
-    if [ -n "$FOCUS" ] && [ "$FOCUS" != "null" ]; then
-        echo "Focus: $FOCUS" >&2
-        echo "" >&2
-    fi
-fi
+═══════════════════════════════════════════════════════════
 
-# ===== Quota Status (if available) =====
-QUOTA_FILE="$LOGS_DIR/quota-usage.json"
-if [ -f "$QUOTA_FILE" ]; then
-    USED=$(jq -r '.daily_usage // 0' "$QUOTA_FILE" 2>/dev/null || echo "0")
-    if [ "$USED" -gt 0 ]; then
-        echo "Quota used today: $USED messages" >&2
-        echo "" >&2
-    fi
-fi
-
-echo "----------------------------------------" >&2
-echo "" >&2
-
-# Mark as shown
-touch "$MARKER_FILE"
+EOF
 
 exit 0

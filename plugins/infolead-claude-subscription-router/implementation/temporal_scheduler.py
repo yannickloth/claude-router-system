@@ -6,7 +6,7 @@ Implements Solution 4 from claude-code-architecture.md:
 - Overnight work scheduling
 - Quota utilization forecasting
 
-State file: ~/.claude/infolead-router/state/temporal-work-queue.json
+State file: ~/.claude/infolead-claude-subscription-router/state/temporal-work-queue.json
 
 Usage:
     scheduler = TemporalScheduler()
@@ -33,7 +33,7 @@ from quota_tracker import QuotaTracker, QUOTA_LIMITS
 
 
 # State directory
-STATE_DIR = Path.home() / ".claude" / "infolead-router" / "state"
+STATE_DIR = Path.home() / ".claude" / "infolead-claude-subscription-router" / "state"
 QUEUE_FILE = STATE_DIR / "temporal-work-queue.json"
 RESULTS_DIR = STATE_DIR / "overnight-results"
 
@@ -61,6 +61,8 @@ class TimedWorkItem:
     status: str = "queued"  # queued, scheduled, running, completed, failed
     result: Optional[str] = None
     error: Optional[str] = None
+    project_path: Optional[str] = None  # Project directory for execution context
+    project_name: Optional[str] = None  # Human-readable project name
 
     def __lt__(self, other: "TimedWorkItem") -> bool:
         """Compare by priority for heap operations."""
@@ -82,6 +84,8 @@ class TimedWorkItem:
             "status": self.status,
             "result": self.result,
             "error": self.error,
+            "project_path": self.project_path,
+            "project_name": self.project_name,
         }
 
     @classmethod
@@ -101,6 +105,8 @@ class TimedWorkItem:
             status=data.get("status", "queued"),
             result=data.get("result"),
             error=data.get("error"),
+            project_path=data.get("project_path"),
+            project_name=data.get("project_name"),
         )
 
 
@@ -187,7 +193,7 @@ class TemporalScheduler:
 
         Args:
             quota_tracker: QuotaTracker instance for quota-aware scheduling
-            state_file: Path to state file (default: ~/.claude/infolead-router/state/temporal-work-queue.json)
+            state_file: Path to state file (default: ~/.claude/infolead-claude-subscription-router/state/temporal-work-queue.json)
         """
         self.tracker = quota_tracker or QuotaTracker()
         self.state_file = state_file or QUEUE_FILE
@@ -560,7 +566,7 @@ class OvernightWorkExecutor:
     async def execute_overnight_queue(
         self,
         work_items: List[TimedWorkItem],
-        agent_executor: Callable[[str, str], Any],
+        agent_executor: Callable[[TimedWorkItem, str], Any],
     ) -> Dict[str, Any]:
         """
         Execute scheduled overnight work.
@@ -573,7 +579,7 @@ class OvernightWorkExecutor:
 
         Args:
             work_items: Work items to execute
-            agent_executor: Callable(description, model) -> result
+            agent_executor: Callable(work_item, model) -> result
 
         Returns:
             Dict mapping work_id to result/error
@@ -652,9 +658,9 @@ class OvernightWorkExecutor:
                 # Execute the work
                 import inspect
                 if inspect.iscoroutinefunction(agent_executor):
-                    result = await agent_executor(work.description, model)
+                    result = await agent_executor(work, model)
                 else:
-                    result = agent_executor(work.description, model)
+                    result = agent_executor(work, model)
 
                 print(f"[overnight] Completed: {work.id}")
                 return result
@@ -703,6 +709,8 @@ def main():
     add_parser.add_argument("--quota", type=int, default=10, help="Estimated quota usage")
     add_parser.add_argument("--duration", type=int, default=30, help="Estimated duration (minutes)")
     add_parser.add_argument("--priority", type=int, default=5, help="Priority (1-10)")
+    add_parser.add_argument("--project-path", help="Project directory path")
+    add_parser.add_argument("--project-name", help="Project name")
 
     # schedule command
     subparsers.add_parser("schedule", help="Schedule overnight work")
@@ -739,9 +747,13 @@ def main():
             estimated_quota=args.quota,
             estimated_duration_minutes=args.duration,
             priority=args.priority,
+            project_path=args.project_path,
+            project_name=args.project_name,
         )
         scheduler.add_work(work)
         print(f"Added work: {work.id} ({timing.value})")
+        if args.project_path:
+            print(f"  Project: {args.project_name or args.project_path}")
 
     elif args.command == "schedule":
         scheduled = scheduler.schedule_overnight_work()

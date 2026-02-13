@@ -74,7 +74,7 @@ Auto-triggered by `router` or `work-coordinator` when:
 
 ## State Management
 
-**State file:** `~/.claude/infolead-router/state/temporal-work-queue.json`
+**State file:** `~/.claude/infolead-claude-subscription-router/state/temporal-work-queue.json`
 
 **Structure:**
 ```json
@@ -98,7 +98,7 @@ Auto-triggered by `router` or `work-coordinator` when:
       "id": "t0",
       "description": "Literature search: autophagy mechanisms",
       "completed_at": "2026-01-31T03:45:00Z",
-      "result_path": "~/.claude/infolead-router/state/overnight-results/t0-results.json",
+      "result_path": "~/.claude/infolead-claude-subscription-router/state/overnight-results/t0-results.json",
       "quota_used": 12,
       "status": "success"
     }
@@ -183,7 +183,7 @@ else:
   - Scheduled for: Tonight at 10:00 PM
 
 Results will be available tomorrow morning in:
-  ~/.claude/infolead-router/state/overnight-results/t1-results.json
+  ~/.claude/infolead-claude-subscription-router/state/overnight-results/t1-results.json
 ```
 
 **When work completes overnight:**
@@ -215,7 +215,7 @@ Morning hook shows completed work results
   "estimated_quota": 15,
   "estimated_duration_minutes": 20,
   "priority": 7,
-  "result_location": "~/.claude/infolead-router/state/overnight-results/t1-results.json"
+  "result_location": "~/.claude/infolead-claude-subscription-router/state/overnight-results/t1-results.json"
 }
 ```
 
@@ -304,7 +304,7 @@ Morning hook shows completed work results
 ✓ Work queued for overnight execution:
   - Searching literature databases for papers on mitochondrial dysfunction in ME/CFS
   - Scheduled for: Tonight at 10:00 PM
-  - Results: ~/.claude/infolead-router/state/overnight-results/t1-results.json
+  - Results: ~/.claude/infolead-claude-subscription-router/state/overnight-results/t1-results.json
 ```
 
 ### Scenario 2: Interactive Design

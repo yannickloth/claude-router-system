@@ -135,14 +135,14 @@ class WorkCoordinator:
 
         Args:
             wip_limit: Maximum concurrent active tasks (default 3)
-            state_file: Path to persist state (default: ~/.claude/infolead-router/state/work-queue.json)
+            state_file: Path to persist state (default: ~/.claude/infolead-claude-subscription-router/state/work-queue.json)
         """
         self.wip_limit = wip_limit
         self.work_items: List[WorkItem] = []
 
         # State file for persistence
         if state_file is None:
-            state_file = Path.home() / ".claude" / "infolead-router" / "state" / "work-queue.json"
+            state_file = Path.home() / ".claude" / "infolead-claude-subscription-router" / "state" / "work-queue.json"
         self.state_file = state_file
 
         # Ensure state directory exists with secure permissions

@@ -149,7 +149,7 @@ CLAUDE RESPONDS:
    I'll delegate to haiku-general."
      ↓
 METRICS LOG:
-  ~/.claude/infolead-router/metrics/2026-02-05.jsonl
+  ~/.claude/infolead-claude-subscription-router/metrics/2026-02-05.jsonl
 ```
 
 **Benefits:**
@@ -202,10 +202,10 @@ Implements **Solution 1: Haiku Pre-Routing** from architecture.md:
 **Check metrics:**
 ```bash
 # View today's routing decisions
-cat ~/.claude/infolead-router/metrics/$(date +%Y-%m-%d).jsonl | jq
+cat ~/.claude/infolead-claude-subscription-router/metrics/$(date +%Y-%m-%d).jsonl | jq
 
 # Count recommendations by agent
-jq -r '.recommendation.agent' ~/.claude/infolead-router/metrics/*.jsonl | sort | uniq -c
+jq -r '.recommendation.agent' ~/.claude/infolead-claude-subscription-router/metrics/*.jsonl | sort | uniq -c
 ```
 
 **Test the system:**

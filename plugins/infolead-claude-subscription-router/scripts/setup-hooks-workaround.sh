@@ -212,16 +212,6 @@ generate_hooks_json() {
           "type": "command",
           "command": "${PLUGIN_ROOT}/hooks/load-session-memory.sh",
           "timeout": 5
-        },
-        {
-          "type": "command",
-          "command": "${PLUGIN_ROOT}/hooks/morning-briefing.sh",
-          "timeout": 10
-        },
-        {
-          "type": "command",
-          "command": "${PLUGIN_ROOT}/hooks/evening-planning.sh",
-          "timeout": 5
         }
       ]
     }

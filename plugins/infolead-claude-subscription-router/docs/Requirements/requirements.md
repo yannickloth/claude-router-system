@@ -241,12 +241,12 @@ ESCALATE:
 
 **Directory structure:**
 
-- `~/.claude/infolead-router/state/` - Persistent state (work queues, session data)
-- `~/.claude/infolead-router/cache/` - Cached results (safe to delete)
-- `~/.claude/infolead-router/memory/` - Cross-session memory
-- `~/.claude/infolead-router/metrics/` - Aggregated metrics (daily JSONL files)
-- `~/.claude/infolead-router/rules/` - Domain-specific rules
-- `~/.claude/infolead-router/domains/` - Domain configurations
+- `~/.claude/infolead-claude-subscription-router/state/` - Persistent state (work queues, session data)
+- `~/.claude/infolead-claude-subscription-router/cache/` - Cached results (safe to delete)
+- `~/.claude/infolead-claude-subscription-router/memory/` - Cross-session memory
+- `~/.claude/infolead-claude-subscription-router/metrics/` - Aggregated metrics (daily JSONL files)
+- `~/.claude/infolead-claude-subscription-router/rules/` - Domain-specific rules
+- `~/.claude/infolead-claude-subscription-router/domains/` - Domain configurations
 - `<project>/.claude/logs/` - Project-specific logs (routing decisions, agent activity)
 - `<project>/.claude/` - Project-specific state
 
@@ -261,7 +261,7 @@ ESCALATE:
 - Zero usage of `/tmp/` for persistent state
 - All state directories created with `mkdir -p`
 - Parent directory existence verified before writes
-- Namespace uses `infolead-router` prefix for clear ownership
+- Namespace uses `infolead-claude-subscription-router` prefix for clear ownership
 
 **Checklist Reference:** [QRC-1.1] File Path & State Management - Persistent vs Ephemeral Storage
 
@@ -273,10 +273,10 @@ ESCALATE:
 
 **Files requiring atomic writes:**
 
-- Work queue: `~/.claude/infolead-router/state/work-queue.json`
-- Session state: `~/.claude/infolead-router/state/sessions/<session-id>.json`
-- Cache index: `~/.claude/infolead-router/cache/index.json`
-- Memory files: `~/.claude/infolead-router/memory/*.json`
+- Work queue: `~/.claude/infolead-claude-subscription-router/state/work-queue.json`
+- Session state: `~/.claude/infolead-claude-subscription-router/state/sessions/<session-id>.json`
+- Cache index: `~/.claude/infolead-claude-subscription-router/cache/index.json`
+- Memory files: `~/.claude/infolead-claude-subscription-router/memory/*.json`
 
 **Acceptance Criteria:**
 - All critical state writes use pattern: write to `.tmp` file, then `mv` to final location
@@ -1139,7 +1139,7 @@ def acquire_lock_with_tracking(path: Path) -> None:
 
 **Metrics storage:**
 
-- Location: `~/.claude/infolead-router/metrics/YYYY-MM-DD.jsonl`
+- Location: `~/.claude/infolead-claude-subscription-router/metrics/YYYY-MM-DD.jsonl`
 - Format: JSONL with two record types distinguished by `record_type` field
 
 **Record types:**

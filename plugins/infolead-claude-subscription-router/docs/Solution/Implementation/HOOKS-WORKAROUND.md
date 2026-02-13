@@ -202,13 +202,13 @@ cd plugins/infolead-claude-subscription-router
 # Start a new Claude Code session and check for:
 
 # 1. Session start hooks (check for log output)
-cat ~/.claude/infolead-router/logs/session.log
+cat ~/.claude/infolead-claude-subscription-router/logs/session.log
 
 # 2. User prompt submit (routing recommendations should appear)
 # Type any prompt and look for [ROUTER] output
 
 # 3. Subagent hooks (spawn any agent and check logs)
-cat ~/.claude/infolead-router/logs/subagents.log
+cat ~/.claude/infolead-claude-subscription-router/logs/subagents.log
 ```
 
 ---

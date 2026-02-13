@@ -40,7 +40,7 @@ mkdir -p "$TEST_LOGS_DIR" "$TEST_METRICS_DIR"
 
 # Override HOME for metrics file isolation
 export HOME="$TEST_DIR"
-mkdir -p "$HOME/.claude/infolead-router/metrics"
+mkdir -p "$HOME/.claude/infolead-claude-subscription-router/metrics"
 
 # Cleanup on exit (invoked via trap)
 # shellcheck disable=SC2317,SC2329
@@ -286,7 +286,7 @@ test_model_tier_detection() {
     local all_passed=true
     local today
     today=$(date +%Y-%m-%d)
-    local metrics_file="$HOME/.claude/infolead-router/metrics/${today}.jsonl"
+    local metrics_file="$HOME/.claude/infolead-claude-subscription-router/metrics/${today}.jsonl"
 
     # Clear metrics file for this test
     true > "$metrics_file"
@@ -322,7 +322,7 @@ test_metrics_format() {
 
     local today
     today=$(date +%Y-%m-%d)
-    local metrics_file="$HOME/.claude/infolead-router/metrics/${today}.jsonl"
+    local metrics_file="$HOME/.claude/infolead-claude-subscription-router/metrics/${today}.jsonl"
 
     # Clear and create fresh metrics file for this test
     true > "$metrics_file"

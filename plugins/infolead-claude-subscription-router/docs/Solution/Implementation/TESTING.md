@@ -153,7 +153,7 @@ nix-shell -p python312Packages.pytest python312Packages.pyyaml --run "pytest tes
 1. Clear existing logs:
    ```bash
    rm -f ~/.claude/logs/routing.log
-   rm -f ~/.claude/infolead-router/metrics/$(date +%Y-%m-%d).jsonl
+   rm -f ~/.claude/infolead-claude-subscription-router/metrics/$(date +%Y-%m-%d).jsonl
    ```
 
 2. Run a task that spawns an agent:
@@ -174,7 +174,7 @@ nix-shell -p python312Packages.pytest python312Packages.pyyaml --run "pytest tes
 
 4. Verify metrics:
    ```bash
-   cat ~/.claude/infolead-router/metrics/$(date +%Y-%m-%d).jsonl | jq .
+   cat ~/.claude/infolead-claude-subscription-router/metrics/$(date +%Y-%m-%d).jsonl | jq .
    ```
 
    Expected: JSON entries with `event`, `agent_type`, `model_tier`, `duration_seconds`
@@ -193,7 +193,7 @@ nix-shell -p python312Packages.pytest python312Packages.pyyaml --run "pytest tes
 
 2. Check state was saved:
    ```bash
-   cat ~/.claude/infolead-router/memory/session-state.json
+   cat ~/.claude/infolead-claude-subscription-router/memory/session-state.json
    ```
 
 3. Close Claude Code completely
