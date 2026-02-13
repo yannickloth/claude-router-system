@@ -37,12 +37,12 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 
 # Metrics storage directory
-METRICS_DIR = Path.home() / ".claude" / "infolead-router" / "metrics"
+METRICS_DIR = Path.home() / ".claude" / "infolead-claude-subscription-router" / "metrics"
 
 # State directories for module integration
-STATE_DIR = Path.home() / ".claude" / "infolead-router" / "state"
-CACHE_DIR = Path.home() / ".claude" / "infolead-router" / "cache"
-MEMORY_DIR = Path.home() / ".claude" / "infolead-router" / "memory"
+STATE_DIR = Path.home() / ".claude" / "infolead-claude-subscription-router" / "state"
+CACHE_DIR = Path.home() / ".claude" / "infolead-claude-subscription-router" / "cache"
+MEMORY_DIR = Path.home() / ".claude" / "infolead-claude-subscription-router" / "memory"
 
 # Metric retention (days)
 RETENTION_DAYS = 90
@@ -110,7 +110,7 @@ class MetricsCollector:
         """Initialize metrics collector.
 
         Args:
-            metrics_dir: Directory for metric storage. Defaults to ~/.claude/infolead-router/metrics
+            metrics_dir: Directory for metric storage. Defaults to ~/.claude/infolead-claude-subscription-router/metrics
         """
         self.metrics_dir = metrics_dir or METRICS_DIR
         self.metrics_dir.mkdir(parents=True, exist_ok=True)
@@ -1401,6 +1401,7 @@ def main():
         print("  report weekly                               - Weekly report")
         print("  compute                                     - Compute all solution metrics")
         print("  efficiency                                  - Show routing efficiency")
+        print("  compliance                                  - Show routing compliance")
         print("  show <solution>                             - Show solution metrics")
         print("  dashboard                                   - Live status dashboard")
         print("  work                                        - Work coordination view")
@@ -1469,6 +1470,17 @@ def main():
 
     elif command == "efficiency":
         display_efficiency(collector)
+
+    elif command == "compliance":
+        # Import and use routing compliance analyzer
+        try:
+            from routing_compliance import RoutingCompliance, display_compliance_report
+            compliance = RoutingCompliance()
+            display_compliance_report(compliance)
+        except ImportError:
+            print("Error: routing_compliance module not found")
+            print("Make sure routing_compliance.py is in the same directory")
+            sys.exit(1)
 
     elif command == "show":
         if len(sys.argv) < 3:

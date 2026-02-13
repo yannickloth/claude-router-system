@@ -1,6 +1,6 @@
 {
   "name": "infolead-claude-subscription-router",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Intelligent routing system for Claude Code with IVP-compliant architecture and visible advisory routing. Routes all requests through a transparent pre-router that provides real-time recommendations to both user and main Claude for optimal agent delegation.",
   "author": {
     "name": "Yannick Loth",
@@ -72,11 +72,6 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/morning-briefing.sh",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/evening-planning.sh",
-            "timeout": 5
           }
         ]
       }

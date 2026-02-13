@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] - 2026-02-13
+
+### Added
+
+- **Agent Usage Tracking System**: Complete request-level and agent-level tracking
+  - `implementation/routing_compliance.py`: Comprehensive compliance analyzer (367 lines)
+  - `hooks/log-subagent-start.sh`: Enhanced to track agent invocations with request linking
+  - `docs/AGENT-USAGE-TRACKING.md`: Full design specification (665 lines)
+  - `docs/AGENT-USAGE-TRACKING-QUICKSTART.md`: User guide with examples (428 lines)
+  - `tests/test_agent_usage_tracking.sh`: Comprehensive test suite (262 lines)
+  - Track which agents are invoked for each request
+  - Detect compliance: whether routing directives were followed or ignored
+  - Analysis tools: compliance reports, agent breakdowns, ignored directive detection
+  - Export capabilities: JSON and CSV formats for external analysis
+
+- **External Orchestration Architecture**: Script-based agent spawning for guaranteed compliance
+  - `scripts/orchestrate-request.py`: Functional prototype for external orchestration (330 lines)
+  - `tests/test_orchestration.sh`: Test suite for orchestration script (200 lines)
+  - `docs/external-orchestration-analysis.md`: Complete feasibility analysis (9,000+ words)
+  - `docs/orchestration-vs-directives-comparison.md`: Decision guide and comparison matrix
+  - `docs/orchestration-implementation-roadmap.md`: 6-week implementation plan
+  - `docs/orchestration-architecture-diagram.md`: Visual architecture and data flow diagrams
+  - `docs/ORCHESTRATION-SUMMARY.md`: Executive summary for decision makers
+  - `docs/INDEX-ORCHESTRATION.md`: Master index and navigation guide
+  - Proves programmatic Claude spawning is feasible (extends overnight execution pattern)
+  - Proposes hybrid approach: orchestration for automation, directives for interaction
+  - Expected impact: 100% routing compliance for automated workflows
+
+- **Overnight Execution System**: Background task execution with agent spawning
+  - `implementation/overnight_execution_runner.py`: Runner for scheduled Claude tasks
+  - `scripts/setup-overnight-execution.sh`: Installation and configuration script
+  - Demonstrates working programmatic Claude invocation
+  - Foundation for external orchestration approach
+
+- **Utility Scripts**: Installation and maintenance automation
+  - `scripts/update.sh`: Plugin update script
+  - `scripts/uninstall.sh`: Clean plugin removal
+
+### Changed
+
+- **Enhanced metrics integration**: Added `compliance` command to `metrics_collector.py`
+- **Documentation reorganization**: Moved docs into Requirements and Solution structure
+- **Routing directives**: Strengthened "MANDATORY" language in hooks and CLAUDE.md
+
+### Fixed
+
+- Removed obsolete `hooks/evening-planning.sh` (redundant with temporal scheduler)
+
+### Notes
+
+- **v1.5.0 delivers both planned v1.4.0 compliance tracking AND new orchestration architecture**
+- Agent usage tracking enables data-driven analysis of routing effectiveness
+- External orchestration provides architectural path to guaranteed routing compliance
+- All tests passing (10/10 for tracking, 8/8 for orchestration)
+- System is active and collecting compliance data in production
+
+---
+
 ## [1.3.2] - 2026-02-06
 
 ### Added
@@ -66,7 +124,7 @@ Complete transformation from invisible black-box routing to transparent, trustwo
   - Can follow, override, or escalate based on additional information
 
 - **Comprehensive metrics collection**: All routing decisions tracked to daily JSONL files
-  - Location: `~/.claude/infolead-router/metrics/YYYY-MM-DD.jsonl`
+  - Location: `~/.claude/infolead-claude-subscription-router/metrics/YYYY-MM-DD.jsonl`
   - Records: timestamp, request hash, recommendation, confidence, reasoning
   - Atomic writes with flock for concurrent request safety
   - Daily rotation for easy analysis
