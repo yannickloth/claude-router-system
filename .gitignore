@@ -28,3 +28,8 @@ test-output/
 
 .direnv
 .claude/logs/routing.log.lock
+
+# Backup files
+*.backup
+*.backup.*
+.claude/settings.local.json.backup.*
