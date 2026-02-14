@@ -35,9 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - All hooks use same detection logic (no more inconsistent behavior)
 
 - **Dependency Validation Improvements**: Enhanced jq dependency checking
-  - Added jq version validation: requires 1.5+ for `fromdateiso8601` support
+  - Added jq version validation: requires 1.6+ for `fromdateiso8601` support
   - Clear error messages when jq is too old or missing
-  - `common-functions.sh`: `check_jq()` now validates version compatibility
+  - `common-functions.sh`: `is_router_enabled()` validates jq version compatibility
 
 - **CLAUDE_PROJECT_ROOT Validation**: Added environment variable validation
   - Validation integrated into `detect_project_root()` function
@@ -54,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Enhanced `common-functions.sh`**: Improved existing utility functions
   - `detect_project_root()`: Added CLAUDE_PROJECT_ROOT validation logic (checks directory exists, contains `.claude`, is absolute path)
-  - `check_jq()`: Enhanced with version validation (requires jq 1.6+ for advanced features)
+  - `is_router_enabled()`: Enhanced with version validation (requires jq 1.6+ for advanced features)
   - Improved error messages and fallback handling throughout
   - All hooks updated with inline XDG_RUNTIME_DIR pattern for temporary files
 

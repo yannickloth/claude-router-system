@@ -78,7 +78,7 @@ QUEUE_RESULT=$(python3 "$IMPL_DIR/temporal_scheduler.py" add \
 
 if [ $? -eq 0 ]; then
     # Extract work ID from result (format: "Added work: <id> (async)")
-    WORK_ID=$(echo "$QUEUE_RESULT" | grep -oP 'Added work: \K\w+' || echo "unknown")
+    WORK_ID=$(echo "$QUEUE_RESULT" | sed -n 's/^Added work: \([a-zA-Z0-9_]*\).*/\1/p' || echo "unknown")
 
     # Success output
     cat <<EOF

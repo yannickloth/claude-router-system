@@ -31,17 +31,10 @@ STATE_DIR=$(get_project_data_dir "state")
 STATE_FILE="$STATE_DIR/session-state.json"
 LOCK_FILE="$STATE_FILE.lock"
 
-# Check for jq
-if [ -f "$COMMON_FUNCTIONS" ]; then
-    if ! check_jq "optional"; then
-        echo "[state] Cannot save state: jq not available" >&2
-        exit 0
-    fi
-else
-    if ! command -v jq &> /dev/null; then
-        echo "[state] Cannot save state: jq not available" >&2
-        exit 0
-    fi
+# Check for jq (already confirmed common-functions.sh exists above)
+if ! check_jq "optional"; then
+    echo "[state] Cannot save state: jq not available" >&2
+    exit 0
 fi
 
 # Update session state with completion timestamp (with locking for concurrent sessions)

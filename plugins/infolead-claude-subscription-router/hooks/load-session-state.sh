@@ -62,17 +62,10 @@ if [ ! -f "$STATE_FILE" ]; then
     exit 0
 fi
 
-# Check for jq
-if [ -f "$COMMON_FUNCTIONS" ]; then
-    if ! check_jq "optional"; then
-        echo "[state] Session state exists but jq not available" >&2
-        exit 0
-    fi
-else
-    if ! command -v jq &> /dev/null; then
-        echo "[state] Session state exists but jq not available" >&2
-        exit 0
-    fi
+# Check for jq (already confirmed common-functions.sh exists above)
+if ! check_jq "optional"; then
+    echo "[state] Session state exists but jq not available" >&2
+    exit 0
 fi
 
 # Check if previous session ended cleanly

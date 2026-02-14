@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
 # pre-tool-use-write-approve.sh
 #
@@ -34,6 +34,8 @@ if [ -f "$COMMON_FUNCTIONS" ]; then
         echo '{"permissionDecision": "ask"}'
         exit 0
     fi
+else
+    exit 0
 fi
 
 # Read input from stdin (tool name and parameters as JSON)

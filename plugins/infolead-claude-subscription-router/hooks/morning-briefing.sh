@@ -31,10 +31,6 @@ if [ -f "$COMMON_FUNCTIONS" ]; then
         exit 0
     fi
 else
-    # Fallback check without common functions
-    if ! command -v jq &> /dev/null; then
-        exit 0
-    fi
     # Exit gracefully if common-functions.sh missing
     exit 0
 fi
