@@ -123,10 +123,32 @@ detect_project_root() {
     # Start from current directory (PWD set by Claude Code)
     local dir="${PWD:-$(pwd)}"
 
-    # If CLAUDE_PROJECT_ROOT is set (future Claude Code feature), use it
+    # If CLAUDE_PROJECT_ROOT is set (future Claude Code feature), validate and use it
     if [ -n "${CLAUDE_PROJECT_ROOT:-}" ]; then
-        echo "$CLAUDE_PROJECT_ROOT"
-        return 0
+        # Validate path exists
+        if [ ! -d "$CLAUDE_PROJECT_ROOT" ]; then
+            echo "⚠️  Warning: CLAUDE_PROJECT_ROOT set but directory does not exist: $CLAUDE_PROJECT_ROOT" >&2
+            # Fall through to auto-detection
+        else
+            # Validate contains .claude directory
+            if [ ! -d "$CLAUDE_PROJECT_ROOT/.claude" ]; then
+                echo "⚠️  Warning: CLAUDE_PROJECT_ROOT set but does not contain .claude directory: $CLAUDE_PROJECT_ROOT" >&2
+                # Fall through to auto-detection
+            else
+                # Path traversal protection: ensure it's an absolute path
+                case "$CLAUDE_PROJECT_ROOT" in
+                    /*)
+                        # Absolute path - safe to use
+                        echo "$CLAUDE_PROJECT_ROOT"
+                        return 0
+                        ;;
+                    *)
+                        echo "⚠️  Warning: CLAUDE_PROJECT_ROOT must be absolute path, got: $CLAUDE_PROJECT_ROOT" >&2
+                        # Fall through to auto-detection
+                        ;;
+                esac
+            fi
+        fi
     fi
 
     # Walk up directory tree looking for .claude directory
@@ -190,6 +212,25 @@ is_router_enabled() {
     # If no project detected, router is enabled globally
     if [ -z "$project_root" ]; then
         return 0
+    fi
+
+    # Check for jq availability - required for settings parsing
+    if ! command -v jq &> /dev/null; then
+        # jq not available - can't check settings, assume enabled (safe default)
+        return 0
+    fi
+
+    # Check jq version - need 1.6+ for advanced features (used elsewhere)
+    # Note: This is a soft check - we only warn if version check fails
+    local jq_version
+    jq_version=$(jq --version 2>/dev/null | sed -n 's/^jq-\([0-9]*\.[0-9]*\).*/\1/p' || echo "unknown")
+    if [ "$jq_version" != "unknown" ]; then
+        local major minor
+        major=$(echo "$jq_version" | cut -d. -f1)
+        minor=$(echo "$jq_version" | cut -d. -f2)
+        if [ "$major" -lt 1 ] || ([ "$major" -eq 1 ] && [ "$minor" -lt 6 ]); then
+            echo "⚠️  Warning: jq version $jq_version detected. Some features require jq 1.6+. Please upgrade." >&2
+        fi
     fi
 
     # Check project settings (takes precedence)

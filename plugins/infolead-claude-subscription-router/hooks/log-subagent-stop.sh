@@ -22,28 +22,15 @@ COMMON_FUNCTIONS="$PLUGIN_ROOT/hooks/common-functions.sh"
 if [ -f "$COMMON_FUNCTIONS" ]; then
     # shellcheck source=common-functions.sh
     source "$COMMON_FUNCTIONS"
-
-    # Check for jq - required for this hook
-    if ! check_jq "required"; then
-        # Warning already shown, exit gracefully
-        exit 0
-    fi
 else
-    # Fallback check without common functions
-    if ! command -v jq &> /dev/null; then
-        cat >&2 <<'EOF'
-⚠️  PLUGIN WARNING: infolead-claude-subscription-router
+    # Exit gracefully if common-functions.sh missing
+    exit 0
+fi
 
-Missing dependency: jq (JSON processor)
-
-Install jq:
-  • Ubuntu/Debian: sudo apt-get install jq
-  • macOS: brew install jq
-  • Arch Linux: sudo pacman -S jq
-  • Fedora: sudo dnf install jq
-EOF
-        exit 0
-    fi
+# Check for jq - required for this hook
+if ! check_jq "required"; then
+    # Warning already shown, exit gracefully
+    exit 0
 fi
 
 # Read JSON from stdin once
@@ -63,7 +50,7 @@ if ! is_router_enabled; then
 fi
 
 # Setup project-specific paths (hybrid architecture)
-PROJECT_ROOT=$(detect_project_root || echo "$CWD")
+PROJECT_ROOT=$(detect_project_root || echo "global")
 PROJECT_ID=$(get_project_id)
 LOGS_DIR=$(get_project_data_dir "logs")
 ROUTING_LOG="$LOGS_DIR/routing.log"

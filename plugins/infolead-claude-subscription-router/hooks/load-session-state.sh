@@ -15,6 +15,9 @@ COMMON_FUNCTIONS="$PLUGIN_ROOT/hooks/common-functions.sh"
 if [ -f "$COMMON_FUNCTIONS" ]; then
     # shellcheck source=common-functions.sh
     source "$COMMON_FUNCTIONS"
+else
+    # Exit gracefully if common-functions.sh missing
+    exit 0
 fi
 
 # Check if router is enabled for this project
@@ -99,7 +102,15 @@ fi
 # Update state to active (with locking for concurrent sessions)
 (
     if flock -x -w 5 200; then
-        TMP_FILE=$(mktemp)
+        # Use XDG_RUNTIME_DIR for temporary files (user-specific, cleaned on logout)
+        if [ -n "${XDG_RUNTIME_DIR:-}" ]; then
+            TMP_FILE="$XDG_RUNTIME_DIR/claude-router-state-$$"
+        else
+            # Fallback to ~/.cache/tmp if XDG_RUNTIME_DIR not set
+            mkdir -p "$HOME/.cache/tmp"
+            TMP_FILE="$HOME/.cache/tmp/claude-router-state-$$"
+        fi
+
         jq --arg started "$(date -Iseconds)" \
            '.status = "active" | .started_at = $started | del(.ended_at)' \
            "$STATE_FILE" > "$TMP_FILE" 2>/dev/null && mv "$TMP_FILE" "$STATE_FILE" || rm -f "$TMP_FILE"

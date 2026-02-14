@@ -102,13 +102,13 @@ fi
 # Check 7: Version
 echo -n "✓ Checking plugin version... "
 VERSION=$(jq -r '.version' "$PLUGIN_ROOT/plugin.json" 2>/dev/null || echo "unknown")
-if [ "$VERSION" = "1.7.0" ]; then
+if [ "$VERSION" = "1.7.1" ]; then
     echo -e "${GREEN}OK (v$VERSION)${NC}"
 elif [ "$VERSION" = "unknown" ]; then
     echo -e "${RED}FAILED${NC} - Cannot read version"
     ISSUES=$((ISSUES + 1))
 else
-    echo -e "${YELLOW}WARNING${NC} - Expected v1.7.0, found v$VERSION"
+    echo -e "${YELLOW}WARNING${NC} - Expected v1.7.1, found v$VERSION"
 fi
 
 # Check 8: Migration script

@@ -34,7 +34,14 @@ test_hook_with_missing_dep() {
     echo -e "${YELLOW}Testing${NC}: $hook_name without $missing_dep"
 
     # Create a wrapper script that hides the dependency
-    local wrapper=$(mktemp)
+    # Use XDG_RUNTIME_DIR for temporary files
+    if [ -n "${XDG_RUNTIME_DIR:-}" ]; then
+        local wrapper="$XDG_RUNTIME_DIR/test-wrapper-$$"
+    else
+        mkdir -p "$HOME/.cache/tmp"
+        local wrapper="$HOME/.cache/tmp/test-wrapper-$$"
+    fi
+
     cat > "$wrapper" <<EOF
 #!/bin/bash
 # Wrapper to simulate missing dependency
@@ -90,6 +97,14 @@ EOF
 echo "=== Testing common-functions.sh ==="
 echo ""
 
+# Use XDG_RUNTIME_DIR for test output
+if [ -n "${XDG_RUNTIME_DIR:-}" ]; then
+    TEST_OUTPUT="$XDG_RUNTIME_DIR/test_output-$$.txt"
+else
+    mkdir -p "$HOME/.cache/tmp"
+    TEST_OUTPUT="$HOME/.cache/tmp/test_output-$$.txt"
+fi
+
 bash -c "
 source '$HOOKS_DIR/common-functions.sh'
 
@@ -104,15 +119,16 @@ function command() {
 export -f command
 
 check_python3 'required' 2>&1
-" > /tmp/test_output.txt 2>&1
+" > "$TEST_OUTPUT" 2>&1 || true
 
-if grep -q "Missing dependency: Python 3.7+" /tmp/test_output.txt; then
+if grep -q "Missing dependency: Python 3.7+" "$TEST_OUTPUT"; then
     echo -e "${GREEN}✓ PASS${NC}: check_python3() shows clear error message"
     TESTS_PASSED=$((TESTS_PASSED + 1))
 else
     echo -e "${RED}✗ FAIL${NC}: check_python3() error message unclear"
     TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
+rm -f "$TEST_OUTPUT"
 echo ""
 
 # Test hooks that require dependencies

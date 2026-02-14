@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.1] - 2026-02-14
+
+### Fixed
+
+- **Project Isolation Coverage**: Fixed 4 hooks missing project isolation implementation
+  - `hooks/morning-briefing.sh`: Now uses project-specific data directories and project context
+  - `hooks/load-session-memory.sh`: Added project-aware paths and `is_router_enabled()` check
+  - `hooks/cache-invalidation.sh`: Added project-aware paths and `is_router_enabled()` check
+  - `hooks/pre-tool-use-write-approve.sh`: Added project isolation and `is_router_enabled()` check
+  - All hooks now properly isolated per project (no more state mixing)
+
+- **Race Condition in Log Archival**: Fixed concurrent session safety in `save-session-state.sh`
+  - Before: Archival operation could race with concurrent sessions reading logs
+  - After: Uses proper flock locking around entire archival operation
+  - Prevents log file corruption during concurrent archive + write
+
+- **File System Guidelines Violations**: Eliminated all `/tmp` usage per XDG Base Directory specification
+  - All hooks now use inline `$XDG_RUNTIME_DIR` pattern with `~/.cache/tmp` fallback
+  - Temporary files now user-specific and cleaned on logout
+  - Prevents permission issues, security vulnerabilities, and file conflicts from shared `/tmp`
+
+- **PROJECT_ROOT Fallback Inconsistencies**: Standardized project root detection across all hooks
+  - `detect_project_root()`: Enhanced with `CLAUDE_PROJECT_ROOT` validation logic
+  - Validates environment variable exists, is a directory, contains `.claude`, and is absolute path
+  - Consistent fallback to current working directory when `.claude` not found
+  - All hooks use same detection logic (no more inconsistent behavior)
+
+- **Dependency Validation Improvements**: Enhanced jq dependency checking
+  - Added jq version validation: requires 1.5+ for `fromdateiso8601` support
+  - Clear error messages when jq is too old or missing
+  - `common-functions.sh`: `check_jq()` now validates version compatibility
+
+- **CLAUDE_PROJECT_ROOT Validation**: Added environment variable validation
+  - Validation integrated into `detect_project_root()` function
+  - Ensures variable is set, points to valid directory, contains `.claude`, and is absolute path
+  - Prevents hooks from failing silently when environment is misconfigured
+  - Better error messages for troubleshooting
+
+- **jq Date Function Compatibility**: Fixed `fromdateiso8601` usage for older jq versions
+  - Functions gracefully degrade when jq < 1.5
+  - Clear warnings when date parsing unavailable
+  - Prevents cryptic jq errors on older systems
+
+### Changed
+
+- **Enhanced `common-functions.sh`**: Improved existing utility functions
+  - `detect_project_root()`: Added CLAUDE_PROJECT_ROOT validation logic (checks directory exists, contains `.claude`, is absolute path)
+  - `check_jq()`: Enhanced with version validation (requires jq 1.6+ for advanced features)
+  - Improved error messages and fallback handling throughout
+  - All hooks updated with inline XDG_RUNTIME_DIR pattern for temporary files
+
+---
+
 ## [1.7.0] - 2026-02-14
 
 ### Added
@@ -63,14 +116,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **All Hooks Updated for Project Isolation**:
+- **Core Hooks Updated for Project Isolation** (6 hooks):
   - `hooks/common-functions.sh`: Added 5 new project-aware functions (130+ new lines)
   - `hooks/user-prompt-submit.sh`: Uses project-specific metrics/logs, adds project context to metrics
   - `hooks/load-session-state.sh`: Project-specific state with flock locking, project context in state
   - `hooks/save-session-state.sh`: Project-specific state with flock locking, project context preservation
   - `hooks/log-subagent-start.sh`: Project-specific paths, adds project context to compliance tracking
   - `hooks/log-subagent-stop.sh`: Project-specific paths, adds project context to agent metrics
-  - All hooks check `is_router_enabled()` before executing
+  - These 6 hooks check `is_router_enabled()` before executing
 
 - **Python Implementation Enhanced**:
   - `implementation/adaptive_orchestrator.py`: Project-aware config loading with cascade
@@ -543,28 +596,6 @@ All tests passing:
 
 ---
 
-## Future Releases
-
-### [1.4.0] - Planned: Compliance Tracking (Phase 2)
-
-- Track recommendation vs actual routing decisions
-- Compute compliance rate metrics
-- Identify patterns where pre-router is accurate/inaccurate
-
-### [1.5.0] - Planned: Adaptive Escalation (Phase 3)
-
-- Use metrics to improve escalation triggers
-- Adjust confidence thresholds based on outcomes
-- Add/remove patterns based on empirical data
-
-### [1.6.0] - Planned: Performance Feedback (Phase 4)
-
-- Link routing recommendations to agent outcomes
-- Optimize routing based on success rates
-- Data-driven routing decisions
-
----
-
 ## Notes
 
 - **v1.3.0** addresses user feedback: "too obscure, monitoring fails, lack confidence"
@@ -572,6 +603,12 @@ All tests passing:
 - IVP architecture enables independent evolution of components
 - See [IMPLEMENTATION-REVIEW.md](docs/IMPLEMENTATION-REVIEW.md) for detailed v1.3.0 review
 
+[1.7.1]: https://github.com/yannickloth/claude-router-system/compare/v1.7.0...v1.7.1
+[1.7.0]: https://github.com/yannickloth/claude-router-system/compare/v1.6.2...v1.7.0
+[1.6.2]: https://github.com/yannickloth/claude-router-system/compare/v1.6.1...v1.6.2
+[1.6.1]: https://github.com/yannickloth/claude-router-system/compare/v1.6.0...v1.6.1
+[1.6.0]: https://github.com/yannickloth/claude-router-system/compare/v1.5.0...v1.6.0
+[1.5.0]: https://github.com/yannickloth/claude-router-system/compare/v1.3.2...v1.5.0
 [1.3.2]: https://github.com/yannickloth/claude-router-system/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/yannickloth/claude-router-system/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/yannickloth/claude-router-system/compare/v1.2.0...v1.3.0

@@ -19,6 +19,12 @@ if [ -f "$COMMON_FUNCTIONS" ]; then
     # shellcheck source=common-functions.sh
     source "$COMMON_FUNCTIONS"
 
+    # Check if router is enabled for this project
+    if ! is_router_enabled; then
+        # Router disabled for this project - skip silently
+        exit 0
+    fi
+
     # Check for jq - required for this hook
     if ! check_jq "required"; then
         # Warning already shown, exit gracefully
@@ -29,10 +35,12 @@ else
     if ! command -v jq &> /dev/null; then
         exit 0
     fi
+    # Exit gracefully if common-functions.sh missing
+    exit 0
 fi
 
-# Configuration
-STATE_DIR="$HOME/.claude/infolead-claude-subscription-router/state"
+# Use project-specific state directory (hybrid architecture)
+STATE_DIR=$(get_project_data_dir "state")
 RESULTS_DIR="$STATE_DIR/overnight-results"
 QUEUE_FILE="$STATE_DIR/temporal-work-queue.json"
 

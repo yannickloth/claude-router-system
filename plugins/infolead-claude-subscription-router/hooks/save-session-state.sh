@@ -15,6 +15,9 @@ COMMON_FUNCTIONS="$PLUGIN_ROOT/hooks/common-functions.sh"
 if [ -f "$COMMON_FUNCTIONS" ]; then
     # shellcheck source=common-functions.sh
     source "$COMMON_FUNCTIONS"
+else
+    # Exit gracefully if common-functions.sh missing
+    exit 0
 fi
 
 # Check if router is enabled for this project
@@ -45,7 +48,14 @@ fi
 (
     if flock -x -w 5 200; then
         if [ -f "$STATE_FILE" ]; then
-            TMP_FILE=$(mktemp)
+            # Use XDG_RUNTIME_DIR for temporary files (user-specific, cleaned on logout)
+            if [ -n "${XDG_RUNTIME_DIR:-}" ]; then
+                TMP_FILE="$XDG_RUNTIME_DIR/claude-router-state-$$"
+            else
+                # Fallback to ~/.cache/tmp if XDG_RUNTIME_DIR not set
+                mkdir -p "$HOME/.cache/tmp"
+                TMP_FILE="$HOME/.cache/tmp/claude-router-state-$$"
+            fi
 
             # Add ended_at timestamp and update status
             jq --arg ended "$(date -Iseconds)" \
@@ -79,23 +89,30 @@ fi
                 }' > "$STATE_FILE"
             echo "[state] Created end state (no active session)" >&2
         fi
+
+        # Archive session log if it exists (project-specific) - INSIDE flock block
+        LOGS_DIR=$(get_project_data_dir "logs")
+        ROUTING_LOG="$LOGS_DIR/routing.log"
+        ARCHIVE_DIR="$LOGS_DIR/archive"
+
+        if [ -f "$ROUTING_LOG" ] && [ -s "$ROUTING_LOG" ]; then
+            mkdir -p "$ARCHIVE_DIR"
+            ARCHIVE_NAME="routing-$(date +%Y%m%d-%H%M%S).log"
+            cp "$ROUTING_LOG" "$ARCHIVE_DIR/$ARCHIVE_NAME"
+
+            # Keep only last 100 lines in active log
+            # Use XDG_RUNTIME_DIR for temporary files
+            if [ -n "${XDG_RUNTIME_DIR:-}" ]; then
+                LOG_TMP="$XDG_RUNTIME_DIR/claude-router-log-$$"
+            else
+                mkdir -p "$HOME/.cache/tmp"
+                LOG_TMP="$HOME/.cache/tmp/claude-router-log-$$"
+            fi
+            tail -100 "$ROUTING_LOG" > "$LOG_TMP" && mv "$LOG_TMP" "$ROUTING_LOG"
+        fi
     else
         echo "[state] Warning: Failed to acquire state lock, session end not recorded" >&2
     fi
 ) 200>"$LOCK_FILE"
-
-# Archive session log if it exists (project-specific)
-LOGS_DIR=$(get_project_data_dir "logs")
-ROUTING_LOG="$LOGS_DIR/routing.log"
-ARCHIVE_DIR="$LOGS_DIR/archive"
-
-if [ -f "$ROUTING_LOG" ] && [ -s "$ROUTING_LOG" ]; then
-    mkdir -p "$ARCHIVE_DIR"
-    ARCHIVE_NAME="routing-$(date +%Y%m%d-%H%M%S).log"
-    cp "$ROUTING_LOG" "$ARCHIVE_DIR/$ARCHIVE_NAME"
-
-    # Keep only last 100 lines in active log
-    tail -100 "$ROUTING_LOG" > "$ROUTING_LOG.tmp" && mv "$ROUTING_LOG.tmp" "$ROUTING_LOG"
-fi
 
 exit 0

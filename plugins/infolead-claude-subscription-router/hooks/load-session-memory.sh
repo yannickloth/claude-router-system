@@ -17,9 +17,19 @@ COMMON_FUNCTIONS="$PLUGIN_ROOT/hooks/common-functions.sh"
 if [ -f "$COMMON_FUNCTIONS" ]; then
     # shellcheck source=common-functions.sh
     source "$COMMON_FUNCTIONS"
+
+    # Check if router is enabled for this project
+    if ! is_router_enabled; then
+        # Router disabled for this project - skip silently
+        exit 0
+    fi
+else
+    # Exit gracefully if common-functions.sh missing
+    exit 0
 fi
 
-MEMORY_DIR="$HOME/.claude/infolead-claude-subscription-router/memory"
+# Use project-specific memory directory (hybrid architecture)
+MEMORY_DIR=$(get_project_data_dir "memory")
 STATE_FILE="$MEMORY_DIR/session-state.json"
 
 # Check if session state exists
