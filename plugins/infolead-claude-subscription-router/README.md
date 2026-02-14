@@ -44,11 +44,13 @@
 - **Semantic deduplication**: 40-50% cache hit rate eliminates redundant work
 - **Break-even analysis**: Only use expensive models when justified
 
-### 🔀 Adaptive Orchestration (NEW in v1.6.0)
+### 🔀 Adaptive Orchestration (v1.6.0, Enhanced in v1.6.1)
 
 **Intelligent orchestration strategy selection based on request complexity.**
 
-Instead of applying universal multi-stage orchestration (interpret → plan → execute) to all requests, adaptive orchestration classifies requests and chooses the optimal strategy:
+Instead of applying universal multi-stage orchestration (interpret → plan → execute) to all requests, adaptive orchestration classifies requests and chooses the optimal strategy.
+
+**NEW in v1.6.1:** YAML configuration support for customizing classification thresholds, pattern weights, and custom domain-specific patterns.
 
 **Three Orchestration Modes:**
 
@@ -418,6 +420,53 @@ touch .claude/agents/my-domain-agent.md
 ```
 
 The router will check project-specific agents first before falling back to general agents.
+
+### 3. (Optional) Configure Adaptive Orchestration
+
+**New in v1.6.1:** Customize adaptive orchestration behavior via YAML configuration.
+
+**Configuration file:** `~/.claude/adaptive-orchestration.yaml`
+
+**Quick setup:**
+
+```bash
+# Copy example config
+cp ~/.claude/plugins/infolead-claude-subscription-router/adaptive-orchestration.yaml.example \
+   ~/.claude/adaptive-orchestration.yaml
+
+# Edit to customize (optional)
+nano ~/.claude/adaptive-orchestration.yaml
+```
+
+**What you can configure:**
+
+- **Thresholds**: Control SIMPLE/COMPLEX classification strictness
+- **Weights**: Adjust pattern match influence on confidence
+- **Custom patterns**: Add domain-specific patterns (migrations, deployments, etc.)
+- **Force mode**: Override orchestration strategy (debugging only)
+
+**Example custom patterns:**
+
+```yaml
+patterns:
+  custom_simple:
+    - pattern: '\\brun\\s+tests?\\b'
+      name: 'run_tests'
+  custom_complex:
+    - pattern: '\\bmigrat(e|ion)\\b'
+      name: 'migration_task'
+    - pattern: '\\bdeploy\\s+to\\s+prod(uction)?\\b'
+      name: 'production_deployment'
+```
+
+**Fallback behavior:**
+
+The system works perfectly without configuration. If the config file is missing or malformed, it uses built-in defaults. This ensures backward compatibility.
+
+**Documentation:**
+
+- Configuration reference: [adaptive-orchestration.yaml.example](adaptive-orchestration.yaml.example)
+- Technical details: [docs/Solution/Architecture/ADAPTIVE-ORCHESTRATION.md#configuration](docs/Solution/Architecture/ADAPTIVE-ORCHESTRATION.md#configuration)
 
 ---
 

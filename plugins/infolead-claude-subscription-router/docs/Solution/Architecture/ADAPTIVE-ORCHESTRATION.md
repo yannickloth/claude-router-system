@@ -1,6 +1,6 @@
 # Adaptive Orchestration
 
-**Status:** Implemented (v1.6.0)
+**Status:** Implemented (v1.6.1 - Configuration support added)
 
 ## Overview
 
@@ -231,6 +231,144 @@ Metadata:
 | MODERATE | 85% | 88% | +3% |
 | COMPLEX | 70% | 85% | +15% |
 
+## Configuration
+
+**New in v1.6.1:** Adaptive orchestration supports YAML configuration files for customization.
+
+### Configuration File
+
+**Location:** `~/.claude/adaptive-orchestration.yaml`
+
+**Example configuration:**
+
+```yaml
+# Thresholds for complexity classification
+thresholds:
+  simple_confidence: 0.7    # Base confidence for SIMPLE (0.0-1.0)
+  complex_confidence: 0.6   # Base confidence for COMPLEX (0.0-1.0)
+
+# Pattern match weights
+weights:
+  simple_weight: 0.1        # Confidence boost per SIMPLE pattern
+  complex_weight: 0.15      # Confidence boost per COMPLEX pattern
+
+# Custom patterns
+patterns:
+  custom_simple:
+    - pattern: '\\brun\\s+tests?\\b'
+      name: 'run_tests'
+  custom_complex:
+    - pattern: '\\bmigrat(e|ion)\\b'
+      name: 'migration_task'
+
+# Mode overrides
+overrides:
+  force_mode: null          # Force specific mode (or null for adaptive)
+```
+
+**See:** `adaptive-orchestration.yaml.example` for complete configuration reference
+
+### Configuration Options
+
+#### Thresholds
+
+Control classification strictness:
+
+```yaml
+thresholds:
+  simple_confidence: 0.8    # Stricter SIMPLE classification
+  complex_confidence: 0.7   # Stricter COMPLEX classification
+```
+
+**Effect:**
+- Higher thresholds → Fewer requests classified as SIMPLE/COMPLEX → More MODERATE
+- Lower thresholds → More requests classified as SIMPLE/COMPLEX → Fewer MODERATE
+
+#### Weights
+
+Control pattern match impact:
+
+```yaml
+weights:
+  simple_weight: 0.2        # Each SIMPLE pattern adds +0.2 confidence
+  complex_weight: 0.25      # Each COMPLEX pattern adds +0.25 confidence
+```
+
+**Effect:**
+- Higher weights → Pattern matches have more influence on classification
+- Lower weights → Pattern matches have less influence on classification
+
+#### Custom Patterns
+
+Add domain-specific patterns:
+
+```yaml
+patterns:
+  custom_simple:
+    - pattern: '\\bdeploy\\s+to\\s+(dev|staging)\\b'
+      name: 'deploy_non_prod'
+  custom_complex:
+    - pattern: '\\bdeploy\\s+to\\s+prod(uction)?\\b'
+      name: 'deploy_production'
+    - pattern: '\\boptimi[zs]e\\s+performance\\b'
+      name: 'performance_optimization'
+```
+
+**Use cases:**
+
+- Add organization-specific terminology
+- Fine-tune classification for domain-specific requests
+- Handle edge cases in your workflow
+
+#### Mode Override
+
+Force specific orchestration mode:
+
+```yaml
+overrides:
+  force_mode: multi_stage   # Always use multi-stage
+```
+
+**Options:**
+
+- `null` (default): Use adaptive classification
+- `single_stage`: Always use fast path
+- `single_stage_monitored`: Always use monitored path
+- `multi_stage`: Always use deliberate path
+
+**Warning:** Forcing a mode disables adaptive orchestration benefits. Use only for debugging or specific requirements.
+
+### Fallback Behavior
+
+Robust fallback ensures system always works:
+
+- **Missing config file:** Uses built-in defaults
+- **Malformed YAML:** Warns and falls back to defaults
+- **Invalid values:** Warns and ignores invalid settings
+- **Backward compatible:** Works without config file
+
+### Configuration Loading
+
+```python
+from adaptive_orchestrator import AdaptiveOrchestrator, load_config
+
+# Load from default location (~/.claude/adaptive-orchestration.yaml)
+orchestrator = AdaptiveOrchestrator()
+
+# Load from custom path
+from pathlib import Path
+config_path = Path("/path/to/custom-config.yaml")
+orchestrator = AdaptiveOrchestrator(config_path=config_path)
+
+# Use programmatic config
+from adaptive_orchestrator import OrchestratorConfig
+config = OrchestratorConfig(
+    simple_confidence_threshold=0.8,
+    complex_confidence_threshold=0.7
+)
+orchestrator = AdaptiveOrchestrator(config=config)
+```
+
 ## Integration
 
 ### Programmatic Usage
@@ -238,7 +376,7 @@ Metadata:
 ```python
 from adaptive_orchestrator import AdaptiveOrchestrator
 
-# Initialize
+# Initialize (loads config from ~/.claude/adaptive-orchestration.yaml if exists)
 orchestrator = AdaptiveOrchestrator()
 
 # Orchestrate request
@@ -323,6 +461,8 @@ python3 metrics_collector.py report --filter adaptive_orchestration
 
 ## Testing
 
+**New in v1.6.1:** Comprehensive test suites including pytest, integration, and E2E tests.
+
 ### Built-in Test Suite
 
 ```bash
@@ -330,6 +470,7 @@ python3 adaptive_orchestrator.py --test
 ```
 
 **Test Coverage:**
+
 - 5 SIMPLE request patterns
 - 5 COMPLEX request patterns
 - 4 MODERATE request patterns
@@ -337,6 +478,78 @@ python3 adaptive_orchestrator.py --test
 - Confidence calibration
 
 **Current Results:** 14/14 passing (100%)
+
+### Pytest Test Suite
+
+**New in v1.6.1:** Full pytest test suite with parametrized tests and config testing.
+
+```bash
+# Run all pytest tests
+pytest tests/infolead-claude-subscription-router/test_adaptive_orchestrator.py -v
+
+# Run with coverage
+pytest tests/infolead-claude-subscription-router/test_adaptive_orchestrator.py -v --cov=adaptive_orchestrator
+
+# Run specific test class
+pytest tests/infolead-claude-subscription-router/test_adaptive_orchestrator.py::TestConfiguration -v
+```
+
+**Test Coverage:**
+
+- Complexity classification (14 parametrized test cases)
+- Pattern matching (SIMPLE, COMPLEX, multi-objective)
+- Configuration loading (defaults, custom thresholds, custom patterns, force mode)
+- Configuration error handling (missing files, malformed YAML, invalid values)
+- Orchestration modes (single-stage, monitored, multi-stage)
+- Metadata completeness
+- Metrics recording
+- Edge cases (empty requests, Unicode, special characters)
+- Integration workflows
+
+**Test Suite:** 50+ test cases
+
+### Integration Tests
+
+**New in v1.6.1:** Bash integration tests for component interaction.
+
+```bash
+# Run integration tests
+./tests/infolead-claude-subscription-router/test_adaptive_orchestrator_integration.sh
+```
+
+**Tests:**
+
+- Routing core integration
+- Metrics collector integration
+- Config file loading and effects
+- Config fallback behavior
+- Malformed config handling
+- Custom pattern application
+- JSON/human output modes
+- Full workflow (classify → orchestrate → route)
+
+### End-to-End Tests
+
+**New in v1.6.1:** E2E tests for realistic scenarios.
+
+```bash
+# Run E2E tests
+./tests/infolead-claude-subscription-router/test_adaptive_orchestrator_e2e.sh
+```
+
+**Scenarios:**
+
+- SIMPLE request workflow (mechanical operations)
+- MODERATE request workflow (typical operations)
+- COMPLEX request workflow (design/architecture)
+- Multi-objective requests
+- Config override effects
+- Custom pattern detection
+- Threshold tuning
+- Production deployment scenario
+- Read-only operation scenario
+- Architectural decision scenario
+- Classification performance benchmarks
 
 ### Manual Testing
 
@@ -352,6 +565,10 @@ python3 adaptive_orchestrator.py "Design a caching architecture"
 # Test MODERATE classification
 python3 adaptive_orchestrator.py "Fix the bug in auth.py"
 # Expected: complexity=moderate, mode=single_stage_monitored
+
+# Test with custom config
+python3 adaptive_orchestrator.py "Migrate database schema"
+# With migration pattern in config → complexity=complex
 ```
 
 ## Design Rationale
@@ -452,7 +669,13 @@ python3 adaptive_orchestrator.py "Fix the bug in auth.py"
 
 ## References
 
-- Implementation: `/plugins/infolead-claude-subscription-router/implementation/adaptive_orchestrator.py`
-- Tests: Built into module (`--test` flag)
-- Metrics: `metrics_collector.py` (solution: `adaptive_orchestration`)
-- Integration: Optional for `hooks/user-prompt-submit.sh`
+- **Implementation:** `/plugins/infolead-claude-subscription-router/implementation/adaptive_orchestrator.py`
+- **Configuration:** `~/.claude/adaptive-orchestration.yaml` (optional)
+- **Example config:** `/plugins/infolead-claude-subscription-router/adaptive-orchestration.yaml.example`
+- **Tests:**
+  - Built-in: `adaptive_orchestrator.py --test`
+  - Pytest: `/tests/infolead-claude-subscription-router/test_adaptive_orchestrator.py`
+  - Integration: `/tests/infolead-claude-subscription-router/test_adaptive_orchestrator_integration.sh`
+  - E2E: `/tests/infolead-claude-subscription-router/test_adaptive_orchestrator_e2e.sh`
+- **Metrics:** `metrics_collector.py` (solution: `adaptive_orchestration`)
+- **Integration:** Optional for `hooks/user-prompt-submit.sh`

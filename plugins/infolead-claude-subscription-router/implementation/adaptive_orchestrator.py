@@ -35,6 +35,7 @@ import json
 import os
 import sys
 import re
+import yaml
 from dataclasses import dataclass, asdict
 from datetime import datetime, UTC
 from enum import Enum
@@ -47,6 +48,105 @@ sys.path.insert(0, str(IMPL_DIR))
 
 from routing_core import route_request, RoutingResult, RouterDecision
 from metrics_collector import MetricsCollector
+
+
+# Configuration
+DEFAULT_CONFIG_PATH = Path.home() / ".claude" / "adaptive-orchestration.yaml"
+
+
+@dataclass
+class OrchestratorConfig:
+    """Configuration for adaptive orchestrator."""
+    # Complexity thresholds
+    simple_confidence_threshold: float = 0.7
+    complex_confidence_threshold: float = 0.6
+
+    # Pattern weights
+    simple_pattern_weight: float = 0.1
+    complex_pattern_weight: float = 0.15
+
+    # Custom patterns (add/remove)
+    custom_simple_patterns: List[Tuple[str, str]] = None
+    custom_complex_patterns: List[Tuple[str, str]] = None
+
+    # Mode overrides
+    force_mode: Optional[str] = None  # "single_stage", "single_stage_monitored", "multi_stage"
+
+    def __post_init__(self):
+        """Initialize custom pattern lists if None."""
+        if self.custom_simple_patterns is None:
+            self.custom_simple_patterns = []
+        if self.custom_complex_patterns is None:
+            self.custom_complex_patterns = []
+
+
+def load_config(config_path: Optional[Path] = None) -> OrchestratorConfig:
+    """
+    Load configuration from YAML file with fallback to defaults.
+
+    Args:
+        config_path: Path to config file (defaults to ~/.claude/adaptive-orchestration.yaml)
+
+    Returns:
+        OrchestratorConfig with loaded or default values
+    """
+    if config_path is None:
+        config_path = DEFAULT_CONFIG_PATH
+
+    # If config doesn't exist, return defaults
+    if not config_path.exists():
+        return OrchestratorConfig()
+
+    try:
+        with open(config_path, 'r') as f:
+            config_data = yaml.safe_load(f)
+
+        if not config_data:
+            return OrchestratorConfig()
+
+        # Validate and extract config
+        thresholds = config_data.get('thresholds', {})
+        weights = config_data.get('weights', {})
+        patterns = config_data.get('patterns', {})
+        overrides = config_data.get('overrides', {})
+
+        # Parse custom patterns
+        custom_simple = []
+        if 'custom_simple' in patterns:
+            for item in patterns['custom_simple']:
+                if isinstance(item, dict) and 'pattern' in item and 'name' in item:
+                    custom_simple.append((item['pattern'], item['name']))
+
+        custom_complex = []
+        if 'custom_complex' in patterns:
+            for item in patterns['custom_complex']:
+                if isinstance(item, dict) and 'pattern' in item and 'name' in item:
+                    custom_complex.append((item['pattern'], item['name']))
+
+        # Validate force_mode
+        force_mode = overrides.get('force_mode')
+        if force_mode and force_mode not in ["single_stage", "single_stage_monitored", "multi_stage", None]:
+            print(f"Warning: Invalid force_mode '{force_mode}' in config, ignoring", file=sys.stderr)
+            force_mode = None
+
+        return OrchestratorConfig(
+            simple_confidence_threshold=float(thresholds.get('simple_confidence', 0.7)),
+            complex_confidence_threshold=float(thresholds.get('complex_confidence', 0.6)),
+            simple_pattern_weight=float(weights.get('simple_weight', 0.1)),
+            complex_pattern_weight=float(weights.get('complex_weight', 0.15)),
+            custom_simple_patterns=custom_simple,
+            custom_complex_patterns=custom_complex,
+            force_mode=force_mode,
+        )
+
+    except yaml.YAMLError as e:
+        print(f"Error parsing config file {config_path}: {e}", file=sys.stderr)
+        print("Falling back to default configuration", file=sys.stderr)
+        return OrchestratorConfig()
+    except Exception as e:
+        print(f"Error loading config file {config_path}: {e}", file=sys.stderr)
+        print("Falling back to default configuration", file=sys.stderr)
+        return OrchestratorConfig()
 
 
 class ComplexityLevel(Enum):
@@ -123,9 +223,21 @@ class ComplexityClassifier:
     # Multi-objective indicators (suggests coordination needed)
     MULTI_OBJECTIVE_MARKERS = [" and then ", ", then ", " after ", " before ", ";", "\n"]
 
-    def __init__(self):
-        """Initialize classifier."""
-        pass
+    def __init__(self, config: Optional[OrchestratorConfig] = None):
+        """
+        Initialize classifier with optional configuration.
+
+        Args:
+            config: OrchestratorConfig with custom patterns and thresholds
+        """
+        self.config = config or OrchestratorConfig()
+
+        # Merge custom patterns with defaults
+        self.simple_indicators = list(self.SIMPLE_INDICATORS)
+        self.simple_indicators.extend(self.config.custom_simple_patterns)
+
+        self.complex_indicators = list(self.COMPLEX_INDICATORS)
+        self.complex_indicators.extend(self.config.custom_complex_patterns)
 
     def has_explicit_file_path(self, request: str) -> bool:
         """
@@ -183,16 +295,16 @@ class ComplexityClassifier:
         request_lower = request.lower()
         indicators = []
 
-        # Check SIMPLE patterns
+        # Check SIMPLE patterns (using merged patterns)
         simple_matches = []
-        for pattern, indicator_name in self.SIMPLE_INDICATORS:
+        for pattern, indicator_name in self.simple_indicators:
             if re.search(pattern, request_lower):
                 simple_matches.append(indicator_name)
                 indicators.append(f"simple:{indicator_name}")
 
-        # Check COMPLEX patterns
+        # Check COMPLEX patterns (using merged patterns)
         complex_matches = []
-        for pattern, indicator_name in self.COMPLEX_INDICATORS:
+        for pattern, indicator_name in self.complex_indicators:
             if re.search(pattern, request_lower):
                 complex_matches.append(indicator_name)
                 indicators.append(f"complex:{indicator_name}")
@@ -214,7 +326,7 @@ class ComplexityClassifier:
         if simple_matches and has_explicit_path and not complex_matches:
             return ComplexityAnalysis(
                 level=ComplexityLevel.SIMPLE,
-                confidence=min(0.95, 0.7 + len(simple_matches) * 0.1),
+                confidence=min(0.95, self.config.simple_confidence_threshold + len(simple_matches) * self.config.simple_pattern_weight),
                 indicators=indicators,
                 recommendation=OrchestrationMode.SINGLE_STAGE
             )
@@ -223,7 +335,7 @@ class ComplexityClassifier:
         if complex_matches or objective_count >= 3:
             return ComplexityAnalysis(
                 level=ComplexityLevel.COMPLEX,
-                confidence=min(0.95, 0.6 + len(complex_matches) * 0.15),
+                confidence=min(0.95, self.config.complex_confidence_threshold + len(complex_matches) * self.config.complex_pattern_weight),
                 indicators=indicators,
                 recommendation=OrchestrationMode.MULTI_STAGE
             )
@@ -255,14 +367,21 @@ class AdaptiveOrchestrator:
        - Full interpretation and planning
     """
 
-    def __init__(self, metrics_dir: Optional[Path] = None):
+    def __init__(self, metrics_dir: Optional[Path] = None, config: Optional[OrchestratorConfig] = None, config_path: Optional[Path] = None):
         """
         Initialize adaptive orchestrator.
 
         Args:
             metrics_dir: Directory for metrics storage
+            config: OrchestratorConfig object (if None, loads from config_path)
+            config_path: Path to config file (defaults to ~/.claude/adaptive-orchestration.yaml)
         """
-        self.classifier = ComplexityClassifier()
+        # Load configuration
+        if config is None:
+            config = load_config(config_path)
+        self.config = config
+
+        self.classifier = ComplexityClassifier(config=config)
         self.metrics = MetricsCollector(metrics_dir=metrics_dir)
 
     def orchestrate(self, request: str, context: Optional[Dict] = None) -> OrchestrationResult:
@@ -279,8 +398,11 @@ class AdaptiveOrchestrator:
         # Step 1: Classify complexity (fast heuristic, no API call)
         complexity_analysis = self.classifier.classify(request)
 
-        # Step 2: Select orchestration mode
-        mode = complexity_analysis.recommendation
+        # Step 2: Select orchestration mode (with config override if set)
+        if self.config.force_mode:
+            mode = OrchestrationMode(self.config.force_mode)
+        else:
+            mode = complexity_analysis.recommendation
 
         # Step 3: Execute with selected mode
         if mode == OrchestrationMode.SINGLE_STAGE:

@@ -1,0 +1,146 @@
+# Adaptive Orchestration Configuration
+#
+# This file configures the adaptive orchestration system that selects
+# orchestration strategies based on request complexity.
+#
+# Location: ~/.claude/adaptive-orchestration.yaml
+#
+# If this file doesn't exist, the system uses built-in defaults.
+# Copy this file to ~/.claude/adaptive-orchestration.yaml and customize.
+
+# ============================================================================
+# THRESHOLDS
+# ============================================================================
+# Control confidence thresholds for complexity classification
+
+thresholds:
+  # Base confidence for SIMPLE classification
+  # Higher = stricter (fewer requests classified as SIMPLE)
+  # Range: 0.0 - 1.0
+  # Default: 0.7
+  simple_confidence: 0.7
+
+  # Base confidence for COMPLEX classification
+  # Higher = stricter (fewer requests classified as COMPLEX)
+  # Range: 0.0 - 1.0
+  # Default: 0.6
+  complex_confidence: 0.6
+
+# ============================================================================
+# WEIGHTS
+# ============================================================================
+# Control how much each matched pattern increases confidence
+
+weights:
+  # Confidence increase per SIMPLE pattern match
+  # Each matched pattern adds this to simple_confidence
+  # Range: 0.0 - 0.5
+  # Default: 0.1
+  simple_weight: 0.1
+
+  # Confidence increase per COMPLEX pattern match
+  # Each matched pattern adds this to complex_confidence
+  # Range: 0.0 - 0.5
+  # Default: 0.15
+  complex_weight: 0.15
+
+# ============================================================================
+# PATTERNS
+# ============================================================================
+# Add custom patterns for complexity detection
+#
+# Pattern format:
+#   - pattern: "regex_pattern"    # Regular expression (case-insensitive)
+#     name: "indicator_name"      # Descriptive name for logging
+
+patterns:
+  # Custom SIMPLE patterns (mechanical, explicit, single-target operations)
+  # These indicate requests that can use fast single-stage orchestration
+  custom_simple:
+    # Example: Detect "update version in package.json" as simple
+    # - pattern: "update\\s+version\\s+in\\s+\\w+\\.json"
+    #   name: "version_update"
+
+    # Example: Detect "run tests" as simple
+    # - pattern: "\\brun\\s+tests?\\b"
+    #   name: "run_tests"
+
+  # Custom COMPLEX patterns (ambiguous, multi-step, requires judgment)
+  # These indicate requests that benefit from multi-stage orchestration
+  custom_complex:
+    # Example: Detect migration tasks as complex
+    # - pattern: "\\bmigrat(e|ion)\\b"
+    #   name: "migration_task"
+
+    # Example: Detect performance optimization as complex
+    # - pattern: "\\b(optimi[zs]e|performance)\\b.*\\b(slow|fast|speed)\\b"
+    #   name: "performance_optimization"
+
+# ============================================================================
+# OVERRIDES
+# ============================================================================
+# Force specific orchestration mode (bypasses complexity classification)
+
+overrides:
+  # Force a specific orchestration mode for all requests
+  # Options:
+  #   - null (default): Use adaptive classification
+  #   - "single_stage": Always use fast single-stage (route → execute)
+  #   - "single_stage_monitored": Always use monitored single-stage
+  #   - "multi_stage": Always use multi-stage (interpret → plan → execute)
+  #
+  # WARNING: Forcing a mode disables adaptive orchestration benefits.
+  # Only use for debugging or specific requirements.
+  #
+  # Default: null
+  force_mode: null
+
+# ============================================================================
+# EXAMPLES
+# ============================================================================
+#
+# Example 1: Make classification more conservative (favor MODERATE)
+#   thresholds:
+#     simple_confidence: 0.8    # Harder to classify as SIMPLE
+#     complex_confidence: 0.7   # Harder to classify as COMPLEX
+#
+# Example 2: Make classification more aggressive (favor extremes)
+#   thresholds:
+#     simple_confidence: 0.6    # Easier to classify as SIMPLE
+#     complex_confidence: 0.5   # Easier to classify as COMPLEX
+#
+# Example 3: Add domain-specific patterns
+#   patterns:
+#     custom_simple:
+#       - pattern: "\\bdeploy\\s+to\\s+(dev|staging)\\b"
+#         name: "deploy_non_prod"
+#     custom_complex:
+#       - pattern: "\\bdeploy\\s+to\\s+prod(uction)?\\b"
+#         name: "deploy_production"
+#
+# Example 4: Force multi-stage for all requests (debugging)
+#   overrides:
+#     force_mode: "multi_stage"
+#
+# ============================================================================
+# BUILT-IN PATTERNS (for reference only - do not edit here)
+# ============================================================================
+#
+# SIMPLE patterns (mechanical operations):
+#   - fix (typo|spelling|syntax)
+#   - format (code|file)
+#   - lint, rename, add/remove (trivial)
+#   - sort (imports|lines)
+#   - show, display, list, get, read (read-only)
+#
+# COMPLEX patterns (requires judgment):
+#   - design, architecture, implement
+#   - best, better, optimal, should I, which
+#   - trade-off, pros and cons, evaluate
+#   - complex, nuanced, subtle, careful
+#   - integrate, refactor, restructure
+#   - multiple/several/all (files|modules|components)
+#   - plan, strategy, approach
+#   - analyze
+#
+# See adaptive_orchestrator.py for complete list.

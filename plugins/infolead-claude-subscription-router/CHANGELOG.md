@@ -7,6 +7,93 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.6.1] - 2026-02-14
+
+### Added
+
+- **Adaptive Orchestration Configuration Support**: YAML configuration for customizing orchestration behavior
+  - `adaptive-orchestration.yaml.example`: Comprehensive configuration template with comments (180 lines)
+  - Configuration location: `~/.claude/adaptive-orchestration.yaml` (optional)
+  - Configurable thresholds: `simple_confidence`, `complex_confidence` (0.0-1.0)
+  - Configurable weights: `simple_weight`, `complex_weight` for pattern matches
+  - Custom pattern support: Add domain-specific SIMPLE/COMPLEX patterns (migrations, deployments, etc.)
+  - Mode override: Force specific orchestration mode for debugging (`force_mode`)
+  - Robust fallback: System works without config, falls back to defaults on errors
+  - Configuration loading: `load_config()` function with validation and error messages
+
+- **Comprehensive Test Suites**: Production-ready testing infrastructure
+  - `tests/test_adaptive_orchestrator.py`: Full pytest suite (500+ lines, 50+ test cases)
+    - Parametrized tests for all 14 built-in complexity test cases
+    - Configuration loading tests (defaults, custom values, error handling)
+    - Pattern matching tests (SIMPLE, COMPLEX, multi-objective)
+    - Orchestration mode tests (single-stage, monitored, multi-stage)
+    - Edge case tests (empty requests, Unicode, special characters)
+    - Metrics recording tests
+    - Integration workflow tests
+  - `tests/test_adaptive_orchestrator_integration.sh`: Bash integration tests (350 lines, 10 tests)
+    - Routing core integration
+    - Metrics collector integration
+    - Config file loading and effects
+    - Config fallback and error handling
+    - Custom pattern application
+    - JSON/human output modes
+    - Full workflow testing
+  - `tests/test_adaptive_orchestrator_e2e.sh`: End-to-end realistic scenarios (500 lines, 11 tests)
+    - SIMPLE/MODERATE/COMPLEX request workflows
+    - Multi-objective request handling
+    - Config override effects
+    - Custom pattern detection
+    - Threshold tuning verification
+    - Production deployment scenario
+    - Read-only operation scenario
+    - Architectural decision scenario
+    - Classification performance benchmarks
+
+### Changed
+
+- **Enhanced `adaptive_orchestrator.py`**: Configuration system integration
+  - Added `OrchestratorConfig` dataclass for configuration management
+  - Added `load_config()` function with YAML parsing and validation
+  - Updated `ComplexityClassifier` to accept config and merge custom patterns
+  - Updated `AdaptiveOrchestrator` to load and apply configuration
+  - Confidence calculation now uses configurable thresholds and weights
+  - Mode selection respects `force_mode` override when set
+  - Added `yaml` import for YAML configuration parsing
+
+- **Updated documentation**: Configuration support documented throughout
+  - `docs/Solution/Architecture/ADAPTIVE-ORCHESTRATION.md`: New Configuration section (150 lines)
+    - Configuration file format and options
+    - Thresholds, weights, custom patterns, mode override
+    - Fallback behavior and error handling
+    - Configuration loading examples
+    - Updated Testing section with new test suites
+    - Updated References section with test paths
+  - `README.md`: New Configuration subsection in setup
+    - Quick setup instructions
+    - Example custom patterns
+    - Configuration options overview
+    - Fallback behavior notes
+    - Documentation links
+  - Updated Adaptive Orchestration section header to mention v1.6.1 enhancements
+
+### Testing
+
+- **100% test coverage maintained**: All tests passing
+  - Built-in test suite: 14/14 passing
+  - Pytest suite: 50+ test cases passing
+  - Integration tests: 10/10 passing
+  - E2E tests: 11/11 passing
+
+### Backward Compatibility
+
+- **Fully backward compatible**: No breaking changes
+  - Works without configuration file (uses built-in defaults)
+  - Existing code continues to work unchanged
+  - Optional configuration file for customization
+  - Graceful fallback on malformed config
+
+---
+
 ## [1.6.0] - 2026-02-14
 
 ### Added
