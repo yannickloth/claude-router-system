@@ -56,18 +56,23 @@ AGENT_ID=$(jq -r '.agent_id // "no-id"' <<< "$INPUT")
 EXIT_STATUS=$(jq -r '.exit_status // "unknown"' <<< "$INPUT")
 TRANSCRIPT=$(jq -r '.transcript_path // ""' <<< "$INPUT")
 
-# Setup paths
-LOGS_DIR="$CWD/.claude/logs"
+# Check if router is enabled for current project
+if ! is_router_enabled; then
+    # Router disabled - skip silently
+    exit 0
+fi
+
+# Setup project-specific paths (hybrid architecture)
+PROJECT_ROOT=$(detect_project_root || echo "$CWD")
+PROJECT_ID=$(get_project_id)
+LOGS_DIR=$(get_project_data_dir "logs")
 ROUTING_LOG="$LOGS_DIR/routing.log"
-METRICS_DIR="${HOME}/.claude/infolead-claude-subscription-router/metrics"
+METRICS_DIR=$(get_project_data_dir "metrics")
 TODAY=$(date +%Y-%m-%d)
 METRICS_FILE="$METRICS_DIR/${TODAY}.jsonl"
-PROJECT=$(basename "$CWD")
+PROJECT=$(basename "$PROJECT_ROOT")
 TIMESTAMP=$(date -Iseconds)
 SHORT_AGENT_ID="${AGENT_ID:0:8}"
-
-# Ensure directories exist
-mkdir -p "$LOGS_DIR" "$METRICS_DIR"
 
 # Get task description from transcript - available now that task completed
 # Transcript format: JSONL with message.content[] containing tool_use entries
@@ -151,11 +156,14 @@ LOG_ENTRY="$TIMESTAMP | $PROJECT | $AGENT_TYPE | $SHORT_AGENT_ID | STOP | ${DURA
 
 # Build metrics JSON (compact format for JSONL - one line per record)
 # record_type distinguishes raw events from computed solution metrics
+# Includes project context for multi-project isolation
 METRICS_JSON=$(jq -c -n \
     --arg record_type "agent_event" \
     --arg event "agent_stop" \
     --arg ts "$TIMESTAMP" \
     --arg project "$PROJECT" \
+    --arg project_id "$PROJECT_ID" \
+    --arg project_root "$PROJECT_ROOT" \
     --arg agent_type "$AGENT_TYPE" \
     --arg agent_id "$AGENT_ID" \
     --arg model_tier "$MODEL_TIER" \
@@ -167,7 +175,11 @@ METRICS_JSON=$(jq -c -n \
         record_type: $record_type,
         event: $event,
         timestamp: $ts,
-        project: $project,
+        project: {
+            name: $project,
+            id: $project_id,
+            root: $project_root
+        },
         agent_type: $agent_type,
         agent_id: $agent_id,
         model_tier: $model_tier,

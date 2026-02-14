@@ -17,12 +17,16 @@ if [ -f "$COMMON_FUNCTIONS" ]; then
     source "$COMMON_FUNCTIONS"
 fi
 
-STATE_DIR="$HOME/.claude/infolead-claude-subscription-router/state"
-STATE_FILE="$STATE_DIR/session-state.json"
+# Check if router is enabled for this project
+if ! is_router_enabled; then
+    # Router disabled for this project - skip silently
+    exit 0
+fi
 
-# Ensure state directory exists
-mkdir -p "$STATE_DIR"
-chmod 700 "$STATE_DIR"
+# Use project-specific state directory (hybrid architecture)
+STATE_DIR=$(get_project_data_dir "state")
+STATE_FILE="$STATE_DIR/session-state.json"
+LOCK_FILE="$STATE_FILE.lock"
 
 # Check for jq
 if [ -f "$COMMON_FUNCTIONS" ]; then
@@ -37,30 +41,51 @@ else
     fi
 fi
 
-# Update session state with completion timestamp
-if [ -f "$STATE_FILE" ]; then
-    TMP_FILE=$(mktemp)
+# Update session state with completion timestamp (with locking for concurrent sessions)
+(
+    if flock -x -w 5 200; then
+        if [ -f "$STATE_FILE" ]; then
+            TMP_FILE=$(mktemp)
 
-    # Add ended_at timestamp and update status
-    jq --arg ended "$(date -Iseconds)" \
-       '.ended_at = $ended | .status = "completed"' \
-       "$STATE_FILE" > "$TMP_FILE" 2>/dev/null
+            # Add ended_at timestamp and update status
+            jq --arg ended "$(date -Iseconds)" \
+               '.ended_at = $ended | .status = "completed"' \
+               "$STATE_FILE" > "$TMP_FILE" 2>/dev/null
 
-    if [ -s "$TMP_FILE" ]; then
-        mv "$TMP_FILE" "$STATE_FILE"
-        echo "[state] Session state saved" >&2
+            if [ -s "$TMP_FILE" ]; then
+                mv "$TMP_FILE" "$STATE_FILE"
+                echo "[state] Session state saved" >&2
+            else
+                rm -f "$TMP_FILE"
+                echo "[state] Failed to update state file" >&2
+            fi
+        else
+            # Create minimal end state with project context
+            PROJECT_ROOT=$(detect_project_root || echo "global")
+            PROJECT_ID=$(get_project_id)
+
+            jq -n \
+                --arg status "completed" \
+                --arg ended "$(date -Iseconds)" \
+                --arg project_id "$PROJECT_ID" \
+                --arg project_root "$PROJECT_ROOT" \
+                '{
+                    status: $status,
+                    ended_at: $ended,
+                    project: {
+                        id: $project_id,
+                        root: $project_root
+                    }
+                }' > "$STATE_FILE"
+            echo "[state] Created end state (no active session)" >&2
+        fi
     else
-        rm -f "$TMP_FILE"
-        echo "[state] Failed to update state file" >&2
+        echo "[state] Warning: Failed to acquire state lock, session end not recorded" >&2
     fi
-else
-    # Create minimal end state
-    echo '{"status": "completed", "ended_at": "'"$(date -Iseconds)"'"}' > "$STATE_FILE"
-    echo "[state] Created end state (no active session)" >&2
-fi
+) 200>"$LOCK_FILE"
 
-# Archive session log if it exists
-LOGS_DIR="$HOME/.claude/infolead-claude-subscription-router/logs"
+# Archive session log if it exists (project-specific)
+LOGS_DIR=$(get_project_data_dir "logs")
 ROUTING_LOG="$LOGS_DIR/routing.log"
 ARCHIVE_DIR="$LOGS_DIR/archive"
 

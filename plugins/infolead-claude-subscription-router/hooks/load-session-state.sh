@@ -17,17 +17,45 @@ if [ -f "$COMMON_FUNCTIONS" ]; then
     source "$COMMON_FUNCTIONS"
 fi
 
-STATE_DIR="$HOME/.claude/infolead-claude-subscription-router/state"
-STATE_FILE="$STATE_DIR/session-state.json"
+# Check if router is enabled for this project
+if ! is_router_enabled; then
+    # Router disabled for this project - skip silently
+    exit 0
+fi
 
-# Ensure state directory exists
-mkdir -p "$STATE_DIR"
-chmod 700 "$STATE_DIR"
+# Use project-specific state directory (hybrid architecture)
+STATE_DIR=$(get_project_data_dir "state")
+STATE_FILE="$STATE_DIR/session-state.json"
+LOCK_FILE="$STATE_FILE.lock"
 
 # Check if session state exists
 if [ ! -f "$STATE_FILE" ]; then
-    # Initialize empty state
-    echo '{"status": "new", "started_at": "'"$(date -Iseconds)"'"}' > "$STATE_FILE"
+    # Initialize empty state with project context
+    PROJECT_ROOT=$(detect_project_root || echo "global")
+    PROJECT_ID=$(get_project_id)
+
+    # Use flock for atomic initialization
+    (
+        flock -x 200
+        # Double-check after acquiring lock
+        if [ ! -f "$STATE_FILE" ]; then
+            jq -n \
+                --arg status "new" \
+                --arg started "$(date -Iseconds)" \
+                --arg project_id "$PROJECT_ID" \
+                --arg project_root "$PROJECT_ROOT" \
+                '{
+                    status: $status,
+                    started_at: $started,
+                    project: {
+                        id: $project_id,
+                        root: $project_root
+                    },
+                    work_in_progress: [],
+                    pending_decisions: []
+                }' > "$STATE_FILE"
+        fi
+    ) 200>"$LOCK_FILE"
     exit 0
 fi
 
@@ -68,10 +96,16 @@ if [ "$PENDING" -gt 0 ]; then
     echo "[state] Pending decisions: $PENDING" >&2
 fi
 
-# Update state to active
-TMP_FILE=$(mktemp)
-jq --arg started "$(date -Iseconds)" \
-   '.status = "active" | .started_at = $started | del(.ended_at)' \
-   "$STATE_FILE" > "$TMP_FILE" 2>/dev/null && mv "$TMP_FILE" "$STATE_FILE" || rm -f "$TMP_FILE"
+# Update state to active (with locking for concurrent sessions)
+(
+    if flock -x -w 5 200; then
+        TMP_FILE=$(mktemp)
+        jq --arg started "$(date -Iseconds)" \
+           '.status = "active" | .started_at = $started | del(.ended_at)' \
+           "$STATE_FILE" > "$TMP_FILE" 2>/dev/null && mv "$TMP_FILE" "$STATE_FILE" || rm -f "$TMP_FILE"
+    else
+        echo "[state] Warning: Failed to acquire state lock, skipping update" >&2
+    fi
+) 200>"$LOCK_FILE"
 
 exit 0

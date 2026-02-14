@@ -1,7 +1,7 @@
 {
   "name": "infolead-claude-subscription-router",
-  "version": "1.6.2",
-  "description": "Intelligent routing system for Claude Code with IVP-compliant architecture, adaptive orchestration, and visible advisory routing. Automatically selects optimal orchestration strategy based on request complexity. v1.6.2 adds clear dependency error messages in all hooks.",
+  "version": "1.7.0",
+  "description": "Intelligent routing system for Claude Code with IVP-compliant architecture, adaptive orchestration, and multi-project support. v1.7.0 adds complete project isolation (state/metrics/logs), project-aware configuration cascade, and fixes all multi-project race conditions.",
   "author": {
     "name": "Yannick Loth",
     "url": "https://infolead.eu"

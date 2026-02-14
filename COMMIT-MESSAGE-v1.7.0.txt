@@ -1,0 +1,55 @@
+feat(router): v1.7.0 - Multi-Project Support with Hybrid Architecture
+
+Add complete multi-project isolation while maintaining global router logic.
+This release fixes all critical multi-project issues identified in pre-production analysis.
+
+Key Features:
+- Automatic project detection via .claude directory traversal
+- Project-specific state/metrics/logs isolation (no more corruption)
+- Project-aware configuration cascade (project → global → defaults)
+- Per-project enable/disable support via settings.json
+- File locking prevents race conditions in concurrent sessions
+- Flexible systemd paths support any installation location
+- One-command migration from v1.6.x via migration script
+
+Architecture: Hybrid (Global router logic + Project-specific state)
+
+Storage Structure:
+- Before: ~/.claude/.../state/ (global, all projects mixed ❌)
+- After: ~/.claude/.../projects/{id}/state/ (isolated per project ✅)
+
+Files Changed:
+- hooks/common-functions.sh: +130 lines (5 new project functions)
+- hooks/*.sh: 6 hooks updated for project isolation
+- implementation/adaptive_orchestrator.py: +65 lines (project config cascade)
+- systemd/*.service: Template with __PLUGIN_ROOT__ placeholder
+- scripts/migrate-to-project-isolation.sh: NEW (200+ lines)
+- docs/MULTI-PROJECT-ARCHITECTURE.md: NEW (500+ lines)
+- MULTI-PROJECT-FIXES-SUMMARY.md: NEW (executive summary)
+- RELEASE-v1.7.0.md: NEW (release notes)
+- CHANGELOG.md: v1.7.0 entry
+- README.md: Multi-project section
+- plugin.json: v1.6.2 → v1.7.0
+
+Benefits:
+✅ No state corruption when switching projects
+✅ Work on 5+ projects simultaneously
+✅ Accurate per-project cost tracking
+✅ Project-specific routing configuration
+✅ Safe concurrent sessions with file locking
+✅ Clean migration path for existing users
+
+Breaking Changes: None
+- Migration preserves all existing data
+- Graceful fallback to "global" if no .claude directory found
+
+Documentation:
+- See docs/MULTI-PROJECT-ARCHITECTURE.md for complete guide
+- See MULTI-PROJECT-FIXES-SUMMARY.md for technical details
+- See RELEASE-v1.7.0.md for release announcement
+
+Testing:
+- Run scripts/validate-installation.sh to verify installation
+- Test scenarios in MULTI-PROJECT-ARCHITECTURE.md
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>

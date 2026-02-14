@@ -80,20 +80,65 @@ class OrchestratorConfig:
             self.custom_complex_patterns = []
 
 
-def load_config(config_path: Optional[Path] = None) -> OrchestratorConfig:
+def detect_project_config() -> Optional[Path]:
     """
-    Load configuration from YAML file with fallback to defaults.
+    Detect project-specific config file by walking up from PWD.
+
+    Returns:
+        Path to project-specific config, or None if not found
+    """
+    cwd = Path(os.getcwd())
+
+    # Walk up directory tree looking for .claude directory
+    current = cwd
+    while current != current.parent:
+        claude_dir = current / ".claude"
+        if claude_dir.is_dir():
+            # Found .claude directory - check for config file
+            config_file = claude_dir / "adaptive-orchestration.yaml"
+            if config_file.exists():
+                return config_file
+            # .claude exists but no config - this is the project root
+            return None
+        current = current.parent
+
+    return None
+
+
+def load_config(config_path: Optional[Path] = None, enable_project_cascade: bool = True) -> OrchestratorConfig:
+    """
+    Load configuration from YAML file with project-aware cascading.
+
+    Configuration cascade (priority order):
+    1. Explicit config_path (if provided)
+    2. Project-specific config (.claude/adaptive-orchestration.yaml)
+    3. Global user config (~/.claude/adaptive-orchestration.yaml)
+    4. Default configuration
 
     Args:
-        config_path: Path to config file (defaults to ~/.claude/adaptive-orchestration.yaml)
+        config_path: Explicit path to config file (overrides cascade)
+        enable_project_cascade: Enable project-specific config detection (default: True)
 
     Returns:
         OrchestratorConfig with loaded or default values
     """
-    if config_path is None:
-        config_path = DEFAULT_CONFIG_PATH
+    # Explicit config_path takes precedence
+    if config_path is not None:
+        if not config_path.exists():
+            return OrchestratorConfig()
+    else:
+        # Try project-specific config first (hybrid architecture)
+        if enable_project_cascade:
+            project_config = detect_project_config()
+            if project_config is not None:
+                config_path = project_config
+            else:
+                # Fall back to global config
+                config_path = DEFAULT_CONFIG_PATH
+        else:
+            config_path = DEFAULT_CONFIG_PATH
 
-    # If config doesn't exist, return defaults
+    # If final config_path doesn't exist, return defaults
     if not config_path.exists():
         return OrchestratorConfig()
 

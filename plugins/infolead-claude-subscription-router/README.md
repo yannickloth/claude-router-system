@@ -79,6 +79,51 @@ Instead of applying universal multi-stage orchestration (interpret → plan → 
 - 15% accuracy improvement on complex requests
 - Maintained speed for simple requests
 
+### 🗂️ Multi-Project Support (v1.7.0)
+
+**Complete project isolation with hybrid architecture.**
+
+Work on multiple projects simultaneously without state corruption, with per-project configuration and metrics tracking.
+
+**Key Features:**
+
+- **Automatic Project Detection** - Detects `.claude` directory to identify project boundaries
+- **Isolated State/Metrics/Logs** - Each project gets its own isolated storage
+- **Project-Aware Configuration** - Cascade: project → global → defaults
+- **Per-Project Enable/Disable** - Fine-grained router control per project
+- **Concurrent Sessions Safe** - File locking prevents race conditions
+- **Easy Migration** - One-command upgrade from v1.6.x
+
+**Architecture:**
+
+- **Global router logic** - One plugin installation, shared routing intelligence
+- **Project-specific state** - Complete isolation prevents state mixing
+- **Hybrid model** - Best of both worlds
+
+**Storage Structure:**
+
+```
+~/.claude/infolead-claude-subscription-router/projects/
+  ├── abc123/  # Project A (stable hash ID)
+  │   ├── state/
+  │   ├── metrics/
+  │   └── logs/
+  └── 789def/  # Project B
+      ├── state/
+      ├── metrics/
+      └── logs/
+```
+
+**Benefits:**
+
+✅ No state corruption when switching projects
+✅ Accurate per-project cost tracking
+✅ Project-specific routing configuration
+✅ Work on 5+ projects simultaneously
+✅ Clean migration from v1.6.x
+
+See [MULTI-PROJECT-ARCHITECTURE.md](docs/MULTI-PROJECT-ARCHITECTURE.md) for complete details.
+
 **Classification Criteria:**
 
 - Fast heuristic analysis (no API calls, <1ms)

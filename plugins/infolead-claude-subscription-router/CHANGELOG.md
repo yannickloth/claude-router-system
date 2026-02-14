@@ -7,6 +7,160 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.0] - 2026-02-14
+
+### Added
+
+- **Multi-Project Support (Hybrid Architecture)**: Complete project isolation with global router logic
+  - **Project Detection System**: Automatic project root detection by walking up directory tree
+    - `detect_project_root()`: Finds `.claude` directory to identify project boundary
+    - `get_project_id()`: Generates stable 16-char hash of project root path for unique identification
+    - `get_project_data_dir()`: Returns project-specific data directory path
+    - Fallback to "global" ID when no `.claude` directory found
+
+  - **Project-Specific State Storage**: Complete isolation prevents state corruption
+    - Storage structure: `~/.claude/infolead-claude-subscription-router/projects/{project-id}/`
+    - Separate state/metrics/logs per project
+    - Session state tracks project context (id, root path)
+    - Work-in-progress isolated per project
+    - No more state mixing when switching projects
+
+  - **Project-Aware Configuration Cascade**: Priority-based configuration loading
+    - Priority 1: Project-specific (`.claude/adaptive-orchestration.yaml`)
+    - Priority 2: Global user config (`~/.claude/adaptive-orchestration.yaml`)
+    - Priority 3: Plugin defaults (built-in)
+    - `detect_project_config()` in `adaptive_orchestrator.py` for automatic detection
+    - `load_config_file()` bash function for hook scripts
+
+  - **Per-Project Enable/Disable**: Fine-grained control over router activation
+    - `is_router_enabled()`: Checks `.claude/settings.json` for `plugins.router.enabled`
+    - All hooks respect project-level disable flag
+    - Router can be disabled for specific projects while enabled globally
+
+  - **File Locking for Concurrent Sessions**: Prevents race conditions
+    - `flock` with 5-second timeout on all state file operations
+    - Lock files: `{state-file}.lock` for coordination
+    - Graceful degradation on lock timeout with warning messages
+    - Safe concurrent access from multiple Claude Code sessions
+
+  - **Migration Tool**: Automated upgrade path from v1.6.x
+    - `scripts/migrate-to-project-isolation.sh`: One-command migration per project
+    - Copies old global state → new project-specific directories
+    - Adds project context to migrated metrics and state
+    - Preserves old data until verified safe to delete
+    - Interactive confirmation with clear instructions
+
+  - **Comprehensive Documentation**:
+    - `docs/MULTI-PROJECT-ARCHITECTURE.md`: Complete architecture guide (500+ lines)
+      - Hybrid model explanation and rationale
+      - Storage structure diagrams
+      - Configuration cascade details
+      - Migration instructions
+      - Testing scenarios
+      - Troubleshooting guide
+      - API reference for developers
+    - `MULTI-PROJECT-FIXES-SUMMARY.md`: Executive summary of all fixes
+
+### Changed
+
+- **All Hooks Updated for Project Isolation**:
+  - `hooks/common-functions.sh`: Added 5 new project-aware functions (130+ new lines)
+  - `hooks/user-prompt-submit.sh`: Uses project-specific metrics/logs, adds project context to metrics
+  - `hooks/load-session-state.sh`: Project-specific state with flock locking, project context in state
+  - `hooks/save-session-state.sh`: Project-specific state with flock locking, project context preservation
+  - `hooks/log-subagent-start.sh`: Project-specific paths, adds project context to compliance tracking
+  - `hooks/log-subagent-stop.sh`: Project-specific paths, adds project context to agent metrics
+  - All hooks check `is_router_enabled()` before executing
+
+- **Python Implementation Enhanced**:
+  - `implementation/adaptive_orchestrator.py`: Project-aware config loading with cascade
+    - `detect_project_config()`: Auto-detects project-specific config files
+    - `load_config()`: Updated with `enable_project_cascade` parameter (default: true)
+    - Walks directory tree to find project `.claude` directory
+
+- **systemd Installation Flexibility**:
+  - `systemd/claude-overnight-executor.service`: Converted to template with `__PLUGIN_ROOT__` placeholder
+  - `scripts/setup-overnight-execution.sh`: Dynamic path substitution during installation
+  - Supports marketplace installations, local clones, any custom paths
+  - No more hardcoded `/home/user/code/...` paths
+
+- **Metrics Schema Enhanced**: All metrics now include project context
+
+  ```json
+  {
+    "project": {
+      "id": "abc123def456",
+      "root": "/home/user/code/my-project",
+      "name": "my-project"
+    }
+  }
+  ```
+
+  - Enables per-project cost tracking and analysis
+  - Routing recommendations track which project they belong to
+  - Agent usage metrics separated by project
+
+### Fixed
+
+- **Multi-Project State Corruption**: Projects no longer share state/metrics/logs
+  - Before: All projects → same global directories → state mixing
+  - After: Each project → isolated `projects/{id}/` directory → complete separation
+
+- **Race Conditions in Concurrent Sessions**: File locking prevents corruption
+  - Before: Multiple sessions could corrupt state file during simultaneous updates
+  - After: flock coordination ensures atomic read-modify-write operations
+
+- **systemd Hardcoded Paths**: Template-based service file supports any installation location
+  - Before: Service file assumed `/home/user/code/claude-router-system/...`
+  - After: Paths replaced during installation based on actual plugin location
+
+- **No Project-Specific Configuration**: Config now cascades from project → global → defaults
+  - Before: Only global config supported
+  - After: Each project can override global settings
+
+- **Unable to Disable Router Per-Project**: Can now disable for specific projects
+  - Before: Router was all-or-nothing globally
+  - After: Set `plugins.router.enabled: false` in project `.claude/settings.json`
+
+### Migration Guide
+
+**For users upgrading from v1.6.x:**
+
+1. Update plugin files (git pull or reinstall)
+2. Run migration script for EACH project:
+
+   ```bash
+   cd ~/your-project
+   /path/to/plugin/scripts/migrate-to-project-isolation.sh
+   ```
+
+3. Verify each project works correctly
+4. After ALL projects migrated, optionally delete old global data:
+
+   ```bash
+   rm -rf ~/.claude/infolead-claude-subscription-router/{state,metrics,logs}
+   ```
+
+**For new installations:**
+
+- No migration needed - multi-project support works automatically
+
+### Backward Compatibility
+
+- **Migration preserves all data**: Old state/metrics/logs copied to new structure
+- **Old data not deleted**: Migration script leaves original files in place
+- **Graceful fallback**: If no `.claude` directory found, uses "global" project ID
+- **No breaking changes**: Existing configurations continue to work
+
+### Known Limitations
+
+- **Overnight Execution**: Multi-project queue support deferred to v1.7.1+
+  - Current: Overnight work uses global queue without project context
+  - Workaround: Manually manage separate overnight queues per project
+  - Future: Each project will have isolated overnight queue
+
+---
+
 ## [1.6.2] - 2026-02-14
 
 ### Added

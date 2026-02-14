@@ -54,19 +54,24 @@ CWD=$(jq -r '.cwd // "."' <<< "$INPUT")
 AGENT_TYPE=$(jq -r '.agent_type // "unknown"' <<< "$INPUT")
 AGENT_ID=$(jq -r '.agent_id // "no-id"' <<< "$INPUT")
 
-# Setup paths
-LOGS_DIR="$CWD/.claude/logs"
+# Check if router is enabled for current project
+if ! is_router_enabled; then
+    # Router disabled - skip silently
+    exit 0
+fi
+
+# Setup project-specific paths (hybrid architecture)
+PROJECT_ROOT=$(detect_project_root || echo "$CWD")
+PROJECT_ID=$(get_project_id)
+LOGS_DIR=$(get_project_data_dir "logs")
 ROUTING_LOG="$LOGS_DIR/routing.log"
-METRICS_DIR="${HOME}/.claude/infolead-claude-subscription-router/metrics"
+METRICS_DIR=$(get_project_data_dir "metrics")
 TODAY=$(date +%Y-%m-%d)
 METRICS_FILE="$METRICS_DIR/${TODAY}.jsonl"
-PROJECT=$(basename "$CWD")
+PROJECT=$(basename "$PROJECT_ROOT")
 TIMESTAMP=$(date -Iseconds)
 TIMESTAMP_EPOCH=$(date +%s)
 SHORT_AGENT_ID="${AGENT_ID:0:8}"
-
-# Ensure directories exist (mkdir -p is atomic)
-mkdir -p "$LOGS_DIR" "$METRICS_DIR"
 
 # Note: Description is NOT available at START time (Task call not yet in transcript)
 # Description will be logged in STOP hook after task completes
@@ -135,7 +140,7 @@ if [[ -n "$RECENT_ROUTING" ]]; then
         COMPLIANCE="ignored"
     fi
 
-    # Build request_tracking JSON record
+    # Build request_tracking JSON record (includes project context)
     TRACKING_JSON=$(jq -c -n \
         --arg record_type "request_tracking" \
         --arg timestamp "$TIMESTAMP" \
@@ -148,6 +153,8 @@ if [[ -n "$RECENT_ROUTING" ]]; then
         --arg agent_id "$AGENT_ID" \
         --arg compliance "$COMPLIANCE" \
         --arg project "$PROJECT" \
+        --arg project_id "$PROJECT_ID" \
+        --arg project_root "$PROJECT_ROOT" \
         --arg routing_reason "$ROUTING_REASON" \
         '{
             record_type: $record_type,
@@ -160,7 +167,11 @@ if [[ -n "$RECENT_ROUTING" ]]; then
             agent_invoked: $agent_invoked,
             agent_id: $agent_id,
             compliance_status: $compliance,
-            project: $project,
+            project: {
+                name: $project,
+                id: $project_id,
+                root: $project_root
+            },
             metadata: {
                 routing_reason: $routing_reason
             }

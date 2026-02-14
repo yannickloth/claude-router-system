@@ -50,9 +50,11 @@ echo "  ✓ Skills installed to $SKILLS_DIR"
 
 echo ""
 echo "Step 3: Installing systemd service and timer..."
-cp "$PLUGIN_ROOT/systemd/claude-overnight-executor.service" "$SYSTEMD_USER_DIR/"
+# Replace __PLUGIN_ROOT__ placeholder with actual plugin path
+sed "s|__PLUGIN_ROOT__|$PLUGIN_ROOT|g" "$PLUGIN_ROOT/systemd/claude-overnight-executor.service" > "$SYSTEMD_USER_DIR/claude-overnight-executor.service"
 cp "$PLUGIN_ROOT/systemd/claude-overnight-executor.timer" "$SYSTEMD_USER_DIR/"
-echo "  ✓ Systemd files copied to $SYSTEMD_USER_DIR"
+echo "  ✓ Systemd files installed to $SYSTEMD_USER_DIR"
+echo "    Plugin root: $PLUGIN_ROOT"
 
 echo ""
 echo "Step 4: Reloading systemd user daemon..."

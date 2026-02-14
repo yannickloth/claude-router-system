@@ -32,17 +32,24 @@ if [ ! -f "$PLUGIN_ROOT/implementation/routing_core.py" ]; then
     exit 0
 fi
 
-ROUTER_DIR="$PLUGIN_ROOT"
+# Check if router is enabled for this project
+if ! is_router_enabled; then
+    # Router explicitly disabled for this project - pass through silently
+    exit 0
+fi
 
+ROUTER_DIR="$PLUGIN_ROOT"
 ROUTING_SCRIPT="$ROUTER_DIR/implementation/routing_core.py"
-METRICS_DIR="${HOME}/.claude/infolead-claude-subscription-router/metrics"
-LOGS_DIR="${HOME}/.claude/infolead-claude-subscription-router/logs"
+
+# Use project-specific directories (hybrid architecture)
+METRICS_DIR=$(get_project_data_dir "metrics")
+LOGS_DIR=$(get_project_data_dir "logs")
+PROJECT_ROOT=$(detect_project_root || echo "global")
+PROJECT_ID=$(get_project_id)
+
 TODAY=$(date +%Y-%m-%d)
 TIMESTAMP=$(date -Iseconds)
 REQUEST_HASH=$(echo -n "$USER_REQUEST" | sha256sum | cut -d' ' -f1 | head -c16)
-
-# Ensure directories exist
-mkdir -p "$METRICS_DIR" "$LOGS_DIR"
 
 # Check all routing dependencies (python3, PyYAML, jq)
 # If any are missing, show clear error messages and exit gracefully
@@ -71,10 +78,13 @@ if [ "$AGENT" = "null" ]; then
 fi
 
 # Log routing decision to metrics (for tracking recommendations)
+# Include project context for multi-project isolation
 METRICS_ENTRY=$(jq -c -n \
     --arg record_type "routing_recommendation" \
     --arg timestamp "$TIMESTAMP" \
     --arg request_hash "$REQUEST_HASH" \
+    --arg project_id "$PROJECT_ID" \
+    --arg project_root "$PROJECT_ROOT" \
     --arg agent "$AGENT" \
     --arg reason "$REASON" \
     --argjson confidence "$CONFIDENCE" \
@@ -83,6 +93,10 @@ METRICS_ENTRY=$(jq -c -n \
         record_type: $record_type,
         timestamp: $timestamp,
         request_hash: $request_hash,
+        project: {
+            id: $project_id,
+            root: $project_root
+        },
         recommendation: {
             agent: $agent,
             reason: $reason,

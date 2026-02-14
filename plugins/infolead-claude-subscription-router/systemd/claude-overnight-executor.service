@@ -1,16 +1,18 @@
 [Unit]
 Description=Claude Code Overnight Work Executor
-Documentation=file://%h/code/claude-router-system/plugins/infolead-claude-subscription-router/docs/
+Documentation=https://github.com/yannickloth/claude-router-system
 After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=%h/code/claude-router-system/plugins/infolead-claude-subscription-router/scripts/overnight-executor.sh
+# NOTE: This is a TEMPLATE file
+# The setup-overnight-execution.sh script will replace __PLUGIN_ROOT__ with actual path
+ExecStart=__PLUGIN_ROOT__/scripts/overnight-executor.sh
 StandardOutput=append:%h/.claude/infolead-claude-subscription-router/logs/overnight-executor.log
 StandardError=append:%h/.claude/infolead-claude-subscription-router/logs/overnight-executor-error.log
 Environment="PATH=/usr/local/bin:/usr/bin:/bin"
-Environment="PYTHONPATH=%h/code/claude-router-system/plugins/infolead-claude-subscription-router/implementation"
-WorkingDirectory=%h/code/claude-router-system/plugins/infolead-claude-subscription-router
+Environment="PYTHONPATH=__PLUGIN_ROOT__/implementation"
+WorkingDirectory=__PLUGIN_ROOT__
 
 # Security hardening
 PrivateTmp=true
