@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.6.2] - 2026-02-14
+
+### Added
+
+- **Clear Dependency Error Messages**: All hooks now show user-friendly installation instructions when dependencies are missing
+  - Created `hooks/common-functions.sh`: Reusable dependency checking functions
+    - `check_python3()`: Checks for Python 3.7+ with installation instructions for major platforms
+    - `check_pyyaml()`: Checks for PyYAML package with pip installation command
+    - `check_jq()`: Checks for jq with installation instructions for major platforms
+    - `check_routing_dependencies()`: Combined check for all routing dependencies
+  - Platform-specific installation commands included:
+    - Ubuntu/Debian: `apt-get install`
+    - macOS: `brew install`
+    - Arch Linux: `pacman -S`
+    - Fedora: `dnf install`
+
+### Changed
+
+- **Improved Hook Dependency Handling**: Replaced silent failures with clear error messages
+  - `user-prompt-submit.sh`: Uses `check_routing_dependencies()` for python3, PyYAML, and jq
+  - `log-subagent-start.sh`: Changed from hard error (`exit 1`) to graceful warning with `check_jq()`
+  - `log-subagent-stop.sh`: Changed from hard error to graceful warning with `check_jq()`
+  - `morning-briefing.sh`: Added clear warning via `check_jq()`
+  - `load-session-state.sh`: Uses `check_jq()` with optional mode
+  - `save-session-state.sh`: Uses `check_jq()` with optional mode
+  - `load-session-memory.sh`: Uses `check_jq()` with optional mode
+  - `cache-invalidation.sh`: Uses `check_python3()` with fallback behavior
+
+### Fixed
+
+- **User Experience**: Hooks no longer fail silently when dependencies are missing
+  - Users now see clear error messages with specific installation commands
+  - Hooks exit gracefully (exit 0) instead of blocking Claude Code operation
+  - Error messages explain impact: "routing won't work", "limited functionality", etc.
+
+### Backward Compatibility
+
+- **Fully backward compatible**: No breaking changes
+  - Hooks continue to exit gracefully when dependencies are missing
+  - Added `common-functions.sh` library that all hooks can optionally source
+  - Fallback checks in place if common-functions.sh is unavailable
+
+---
+
 ## [1.6.1] - 2026-02-14
 
 ### Added

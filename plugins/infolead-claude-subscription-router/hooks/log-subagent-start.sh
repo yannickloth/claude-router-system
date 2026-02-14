@@ -14,10 +14,36 @@
 
 set -euo pipefail
 
-# Check for jq dependency
-if ! command -v jq &> /dev/null; then
-    echo "[routing] ERROR: jq is required but not installed" >&2
-    exit 1
+# Determine plugin root
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$0")")}"
+
+# Source common functions for dependency checking
+COMMON_FUNCTIONS="$PLUGIN_ROOT/hooks/common-functions.sh"
+if [ -f "$COMMON_FUNCTIONS" ]; then
+    # shellcheck source=common-functions.sh
+    source "$COMMON_FUNCTIONS"
+
+    # Check for jq - required for this hook
+    if ! check_jq "required"; then
+        # Warning already shown, exit gracefully
+        exit 0
+    fi
+else
+    # Fallback check without common functions
+    if ! command -v jq &> /dev/null; then
+        cat >&2 <<'EOF'
+⚠️  PLUGIN WARNING: infolead-claude-subscription-router
+
+Missing dependency: jq (JSON processor)
+
+Install jq:
+  • Ubuntu/Debian: sudo apt-get install jq
+  • macOS: brew install jq
+  • Arch Linux: sudo pacman -S jq
+  • Fedora: sudo dnf install jq
+EOF
+        exit 0
+    fi
 fi
 
 # Read JSON from stdin once

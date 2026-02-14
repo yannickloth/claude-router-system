@@ -16,6 +16,16 @@ USER_REQUEST=$(cat)
 # Use plugin root if set, otherwise derive from script location
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$0")")}"
 
+# Source common functions for dependency checking
+COMMON_FUNCTIONS="$PLUGIN_ROOT/hooks/common-functions.sh"
+if [ -f "$COMMON_FUNCTIONS" ]; then
+    # shellcheck source=common-functions.sh
+    source "$COMMON_FUNCTIONS"
+else
+    # Fallback if common functions not available - fail silently
+    exit 0
+fi
+
 # Verify routing script exists
 if [ ! -f "$PLUGIN_ROOT/implementation/routing_core.py" ]; then
     # Router system not properly installed - pass through silently
@@ -34,20 +44,10 @@ REQUEST_HASH=$(echo -n "$USER_REQUEST" | sha256sum | cut -d' ' -f1 | head -c16)
 # Ensure directories exist
 mkdir -p "$METRICS_DIR" "$LOGS_DIR"
 
-# Verify routing script exists
-if [ ! -f "$ROUTING_SCRIPT" ]; then
-    exit 0
-fi
-
-# Check for python3 availability
-if ! command -v python3 &> /dev/null; then
-    # Python3 not available - pass through silently
-    exit 0
-fi
-
-# Check for jq availability (used for JSON processing below)
-if ! command -v jq &> /dev/null; then
-    # jq not available - pass through silently
+# Check all routing dependencies (python3, PyYAML, jq)
+# If any are missing, show clear error messages and exit gracefully
+if ! check_routing_dependencies; then
+    # Dependencies missing - warning already shown, exit gracefully
     exit 0
 fi
 

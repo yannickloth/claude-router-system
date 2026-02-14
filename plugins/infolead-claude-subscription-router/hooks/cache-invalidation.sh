@@ -7,6 +7,16 @@
 
 set -euo pipefail
 
+# Determine plugin root
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$0")")}"
+
+# Source common functions for dependency checking
+COMMON_FUNCTIONS="$PLUGIN_ROOT/hooks/common-functions.sh"
+if [ -f "$COMMON_FUNCTIONS" ]; then
+    # shellcheck source=common-functions.sh
+    source "$COMMON_FUNCTIONS"
+fi
+
 CACHE_DIR="$HOME/.claude/infolead-claude-subscription-router/cache"
 
 # Ensure cache directory exists
@@ -26,10 +36,18 @@ fi
 echo "[cache] Files modified - checking cache invalidation..." >&2
 
 # Check if Python cache invalidation module exists
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$0")")}"
 CACHE_MODULE="$PLUGIN_ROOT/implementation/semantic_cache.py"
 
-if [ -f "$CACHE_MODULE" ]; then
+# Check for Python 3 availability
+HAS_PYTHON=false
+if command -v python3 &> /dev/null; then
+    HAS_PYTHON=true
+elif [ -f "$COMMON_FUNCTIONS" ]; then
+    # Show warning about missing Python
+    check_python3 "optional" > /dev/null
+fi
+
+if [ -f "$CACHE_MODULE" ] && [ "$HAS_PYTHON" = true ]; then
     # Use the plugin's cache module
     python3 - "$CACHE_DIR" "$MODIFIED_FILES" <<'EOF' 2>/dev/null || echo "[cache] Cache invalidation skipped (module not ready)" >&2
 import sys

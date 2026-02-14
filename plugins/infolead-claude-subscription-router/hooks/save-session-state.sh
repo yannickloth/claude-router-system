@@ -7,6 +7,16 @@
 
 set -euo pipefail
 
+# Determine plugin root
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$0")")}"
+
+# Source common functions for dependency checking
+COMMON_FUNCTIONS="$PLUGIN_ROOT/hooks/common-functions.sh"
+if [ -f "$COMMON_FUNCTIONS" ]; then
+    # shellcheck source=common-functions.sh
+    source "$COMMON_FUNCTIONS"
+fi
+
 STATE_DIR="$HOME/.claude/infolead-claude-subscription-router/state"
 STATE_FILE="$STATE_DIR/session-state.json"
 
@@ -15,9 +25,16 @@ mkdir -p "$STATE_DIR"
 chmod 700 "$STATE_DIR"
 
 # Check for jq
-if ! command -v jq &> /dev/null; then
-    echo "[state] Cannot save state: jq not available" >&2
-    exit 0
+if [ -f "$COMMON_FUNCTIONS" ]; then
+    if ! check_jq "optional"; then
+        echo "[state] Cannot save state: jq not available" >&2
+        exit 0
+    fi
+else
+    if ! command -v jq &> /dev/null; then
+        echo "[state] Cannot save state: jq not available" >&2
+        exit 0
+    fi
 fi
 
 # Update session state with completion timestamp

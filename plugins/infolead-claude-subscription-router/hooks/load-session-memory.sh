@@ -9,6 +9,16 @@
 
 set -euo pipefail
 
+# Determine plugin root
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$0")")}"
+
+# Source common functions for dependency checking
+COMMON_FUNCTIONS="$PLUGIN_ROOT/hooks/common-functions.sh"
+if [ -f "$COMMON_FUNCTIONS" ]; then
+    # shellcheck source=common-functions.sh
+    source "$COMMON_FUNCTIONS"
+fi
+
 MEMORY_DIR="$HOME/.claude/infolead-claude-subscription-router/memory"
 STATE_FILE="$MEMORY_DIR/session-state.json"
 
@@ -19,8 +29,20 @@ fi
 
 echo "[session] Loading session memory..." >&2
 
+# Check for jq (optional for this hook)
+HAS_JQ=false
+if [ -f "$COMMON_FUNCTIONS" ]; then
+    if check_jq "optional"; then
+        HAS_JQ=true
+    fi
+else
+    if command -v jq &> /dev/null; then
+        HAS_JQ=true
+    fi
+fi
+
 # Extract and display current focus
-if command -v jq &> /dev/null; then
+if [ "$HAS_JQ" = true ]; then
     FOCUS=$(jq -r '.current_focus // "Unknown"' "$STATE_FILE" 2>/dev/null)
     if [ "$FOCUS" != "null" ] && [ -n "$FOCUS" ]; then
         echo "[session] Last focus: $FOCUS" >&2
