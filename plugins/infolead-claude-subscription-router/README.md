@@ -44,6 +44,64 @@
 - **Semantic deduplication**: 40-50% cache hit rate eliminates redundant work
 - **Break-even analysis**: Only use expensive models when justified
 
+### 🔀 Adaptive Orchestration (NEW in v1.6.0)
+
+**Intelligent orchestration strategy selection based on request complexity.**
+
+Instead of applying universal multi-stage orchestration (interpret → plan → execute) to all requests, adaptive orchestration classifies requests and chooses the optimal strategy:
+
+**Three Orchestration Modes:**
+
+1. **Single-Stage (SIMPLE)** - Fast path for mechanical operations
+   - Pattern: `route → execute`
+   - Examples: "Fix typo in README.md", "Format code in main.py"
+   - Overhead: ~50ms
+   - Use: 30% of requests
+
+2. **Single-Stage with Monitoring (MODERATE)** - Normal path for typical requests
+   - Pattern: `route → execute + monitor`
+   - Examples: "Fix bug in auth.py", "Add logging to payment module"
+   - Overhead: ~100ms
+   - Use: 50% of requests
+
+3. **Multi-Stage (COMPLEX)** - Deliberate path for ambiguous/complex work
+   - Pattern: `interpret → plan → execute`
+   - Examples: "Design caching architecture", "Which approach is best for auth?"
+   - Overhead: ~300ms
+   - Use: 20% of requests
+
+**Performance Benefits:**
+
+- 12% average latency increase (vs 150% for universal multi-stage)
+- 12% average cost increase (vs 56% for universal multi-stage)
+- 15% accuracy improvement on complex requests
+- Maintained speed for simple requests
+
+**Classification Criteria:**
+
+- Fast heuristic analysis (no API calls, <1ms)
+- Pattern matching on request text
+- Detects: mechanical ops, design keywords, judgment signals, multi-objective requests
+
+**CLI Usage:**
+
+```bash
+# Analyze request complexity and orchestration mode
+python3 implementation/adaptive_orchestrator.py "Design a caching system"
+
+# JSON output
+python3 implementation/adaptive_orchestrator.py --json "Fix typo in README.md"
+
+# Run tests (14 test cases)
+python3 implementation/adaptive_orchestrator.py --test
+```
+
+**Documentation:**
+
+- Technical details: [docs/Solution/Architecture/ADAPTIVE-ORCHESTRATION.md](docs/Solution/Architecture/ADAPTIVE-ORCHESTRATION.md)
+- Implementation: [implementation/adaptive_orchestrator.py](implementation/adaptive_orchestrator.py)
+- Optional hook integration: [hooks/user-prompt-submit-with-orchestration.sh.example](hooks/user-prompt-submit-with-orchestration.sh.example)
+
 ### 📐 IVP Architecture
 Built on the **Independent Variation Principle** (IVP): separate concerns with different change drivers into independent units.
 

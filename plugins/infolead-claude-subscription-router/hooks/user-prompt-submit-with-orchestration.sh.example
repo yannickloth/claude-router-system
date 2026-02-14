@@ -1,0 +1,178 @@
+#!/bin/bash
+#
+# User Prompt Submit Hook - WITH ADAPTIVE ORCHESTRATION (OPTIONAL)
+#
+# This is an OPTIONAL enhancement to user-prompt-submit.sh that adds
+# adaptive orchestration. It provides additional complexity analysis
+# and orchestration recommendations.
+#
+# To enable:
+# 1. Review this file
+# 2. Copy to user-prompt-submit.sh (replacing current version)
+# 3. Ensure adaptive_orchestrator.py is in implementation/
+#
+# WARNING: This adds ~50-100ms latency to every request for orchestration
+# analysis. Only enable if you want the additional complexity insights.
+#
+# Change Driver: ROUTING_HOOKS
+# Changes when: Hook integration requirements evolve
+
+set -euo pipefail
+
+# Configuration
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/infolead-claude-subscription-router}"
+IMPL_DIR="$PLUGIN_ROOT/implementation"
+STATE_DIR="$HOME/.claude/infolead-claude-subscription-router/state"
+ROUTING_CORE="$IMPL_DIR/routing_core.py"
+ORCHESTRATOR="$IMPL_DIR/adaptive_orchestrator.py"
+
+# Create state directory if needed
+mkdir -p "$STATE_DIR"
+
+# Get user request from environment
+USER_REQUEST="${CLAUDE_USER_PROMPT:-}"
+
+if [ -z "$USER_REQUEST" ]; then
+    # No request to route
+    exit 0
+fi
+
+# Generate request hash for caching
+REQUEST_HASH=$(echo -n "$USER_REQUEST" | sha256sum | cut -d' ' -f1 | cut -c1-16)
+
+# ============================================================================
+# PHASE 1: ADAPTIVE ORCHESTRATION (OPTIONAL)
+# ============================================================================
+
+ORCHESTRATION_RESULT=""
+COMPLEXITY=""
+ORCHESTRATION_MODE=""
+
+if [ -f "$ORCHESTRATOR" ]; then
+    # Run adaptive orchestration
+    ORCHESTRATION_RESULT=$(echo "$USER_REQUEST" | python3 "$ORCHESTRATOR" --json 2>/dev/null || echo "{}")
+
+    if [ -n "$ORCHESTRATION_RESULT" ] && [ "$ORCHESTRATION_RESULT" != "{}" ]; then
+        # Extract complexity and mode
+        COMPLEXITY=$(echo "$ORCHESTRATION_RESULT" | jq -r '.complexity // "unknown"')
+        ORCHESTRATION_MODE=$(echo "$ORCHESTRATION_RESULT" | jq -r '.mode // "unknown"')
+
+        # Store orchestration result for potential use by other hooks
+        echo "$ORCHESTRATION_RESULT" > "$STATE_DIR/last-orchestration-$REQUEST_HASH.json"
+    fi
+fi
+
+# ============================================================================
+# PHASE 2: ROUTING DECISION (STANDARD)
+# ============================================================================
+
+# Run routing analysis
+ROUTING_RESULT=$(echo "$USER_REQUEST" | python3 "$ROUTING_CORE" --json 2>/dev/null || echo "{}")
+
+if [ -z "$ROUTING_RESULT" ] || [ "$ROUTING_RESULT" = "{}" ]; then
+    # Routing failed - don't provide recommendation
+    exit 0
+fi
+
+# Extract routing decision
+DECISION=$(echo "$ROUTING_RESULT" | jq -r '.decision // "unknown"')
+AGENT=$(echo "$ROUTING_RESULT" | jq -r '.agent // "none"')
+REASON=$(echo "$ROUTING_RESULT" | jq -r '.reason // "unknown"')
+CONFIDENCE=$(echo "$ROUTING_RESULT" | jq -r '.confidence // 0')
+
+# ============================================================================
+# PHASE 3: FORMAT OUTPUT WITH ORCHESTRATION INSIGHTS
+# ============================================================================
+
+# Start building output
+OUTPUT=""
+
+# Add orchestration header if available
+if [ -n "$COMPLEXITY" ] && [ "$COMPLEXITY" != "unknown" ]; then
+    OUTPUT+="
+<orchestration-analysis>
+Request Complexity: $COMPLEXITY
+Orchestration Mode: $ORCHESTRATION_MODE
+"
+
+    # Add complexity-specific guidance
+    case "$COMPLEXITY" in
+        "complex")
+            OUTPUT+="
+ℹ️  COMPLEX REQUEST DETECTED
+This request involves design, judgment, or multiple steps.
+Recommended: Multi-stage orchestration (interpret → plan → execute)
+"
+            ;;
+        "simple")
+            OUTPUT+="
+✓ SIMPLE REQUEST DETECTED
+This is a mechanical operation with clear targets.
+Recommended: Fast-path execution (minimal overhead)
+"
+            ;;
+        "moderate")
+            OUTPUT+="
+→ MODERATE REQUEST DETECTED
+This is a typical request without strong complexity signals.
+Recommended: Standard execution with monitoring
+"
+            ;;
+    esac
+
+    OUTPUT+="</orchestration-analysis>
+
+"
+fi
+
+# Add routing directive (MANDATORY)
+OUTPUT+="<routing-recommendation request-hash=\"$REQUEST_HASH\">
+ROUTING DIRECTIVE - MANDATORY ACTION REQUIRED. No interpretation allowed.
+
+Decision: $DECISION
+Reason: $REASON
+Confidence: $CONFIDENCE
+
+ACTION INSTRUCTIONS:
+"
+
+if [ "$DECISION" = "escalate" ]; then
+    OUTPUT+="- You MUST NOT handle this request directly
+- You MUST use the Task tool to invoke the router agent
+- You MUST NOT ask clarifying questions
+- Execute the routing decision immediately without hesitation
+
+INVOKE: Task tool with skill \"router-escalation\" and pass the user's request
+"
+elif [ "$DECISION" = "direct" ]; then
+    if [ "$AGENT" != "none" ] && [ "$AGENT" != "null" ]; then
+        OUTPUT+="- You MUST route this request to the specified agent
+- You MUST NOT override this routing decision
+- You MUST NOT ask clarifying questions
+- Execute the routing decision immediately without hesitation
+
+INVOKE: Task tool with skill \"$AGENT\" and pass the user's request
+"
+    else
+        OUTPUT+="- Routing decision was 'direct' but no agent specified
+- Fall back to your own judgment for handling this request
+"
+    fi
+else
+    OUTPUT+="- Unknown routing decision: $DECISION
+- Use your own judgment for handling this request
+"
+fi
+
+OUTPUT+="
+Routing Data (JSON):
+\`\`\`json
+$ROUTING_RESULT
+\`\`\`
+</routing-recommendation>
+"
+
+# Output the formatted result
+echo "$OUTPUT"
+
+exit 0
