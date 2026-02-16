@@ -63,43 +63,43 @@ class TestComplexityClassification:
     """Test complexity classification with built-in test cases."""
 
     # SIMPLE test cases
-    @pytest.mark.parametrize("request", [
+    @pytest.mark.parametrize("user_request", [
         "Fix typo in README.md",
         "Format code in src/main.py",
         "Rename variable foo to bar in utils.py",
         "Sort imports in app.py",
         "Show me the contents of config.json",
     ])
-    def test_simple_requests(self, orchestrator, request):
+    def test_simple_requests(self, orchestrator, user_request):
         """Test SIMPLE request classification."""
-        result = orchestrator.orchestrate(request)
+        result = orchestrator.orchestrate(user_request)
         assert result.complexity == ComplexityLevel.SIMPLE
         assert result.mode == OrchestrationMode.SINGLE_STAGE
 
     # COMPLEX test cases
-    @pytest.mark.parametrize("request", [
+    @pytest.mark.parametrize("user_request", [
         "Design a caching architecture with fallback strategies",
         "Which is the best approach for implementing authentication?",
         "Refactor the entire authentication system",
         "Implement a new API endpoint and add tests and update documentation",
         "Analyze the trade-offs between Redis and Memcached for our use case",
     ])
-    def test_complex_requests(self, orchestrator, request):
+    def test_complex_requests(self, orchestrator, user_request):
         """Test COMPLEX request classification."""
-        result = orchestrator.orchestrate(request)
+        result = orchestrator.orchestrate(user_request)
         assert result.complexity == ComplexityLevel.COMPLEX
         assert result.mode == OrchestrationMode.MULTI_STAGE
 
     # MODERATE test cases
-    @pytest.mark.parametrize("request", [
+    @pytest.mark.parametrize("user_request", [
         "Fix the bug in auth.py",
         "Add logging to the payment module",
         "Update the API documentation",
         "Run the test suite",
     ])
-    def test_moderate_requests(self, orchestrator, request):
+    def test_moderate_requests(self, orchestrator, user_request):
         """Test MODERATE request classification."""
-        result = orchestrator.orchestrate(request)
+        result = orchestrator.orchestrate(user_request)
         assert result.complexity == ComplexityLevel.MODERATE
         assert result.mode == OrchestrationMode.SINGLE_STAGE_WITH_MONITORING
 
@@ -315,7 +315,7 @@ class TestConfiguration:
         config_data = {
             'patterns': {
                 'custom_complex': [
-                    {'pattern': r'\\bmigrate\\b', 'name': 'migration_task'},
+                    {'pattern': r'\bmigrate\b', 'name': 'migration_task'},
                 ],
             }
         }
@@ -432,7 +432,7 @@ class TestEdgeCases:
 class TestMetricsRecording:
     """Test metrics recording during orchestration."""
 
-    @patch('adaptive_orchestrator.MetricsCollector')
+    @patch('adaptive_orchestration.orchestration.adaptive_orchestrator.MetricsCollector')
     def test_metrics_recorded(self, mock_metrics_class):
         """Test metrics are recorded during orchestration."""
         mock_metrics = Mock()

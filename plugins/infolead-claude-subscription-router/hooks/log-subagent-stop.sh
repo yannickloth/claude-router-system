@@ -14,16 +14,12 @@
 
 set -euo pipefail
 
-# Determine plugin root
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$0")")}"
-
-# Source common functions for dependency checking
-COMMON_FUNCTIONS="$PLUGIN_ROOT/hooks/common-functions.sh"
-if [ -f "$COMMON_FUNCTIONS" ]; then
-    # shellcheck source=common-functions.sh
-    source "$COMMON_FUNCTIONS"
+# Source hook infrastructure
+HOOK_DIR="$(dirname "$0")"
+if [ -f "$HOOK_DIR/hook-preamble.sh" ]; then
+    # shellcheck source=hook-preamble.sh
+    source "$HOOK_DIR/hook-preamble.sh"
 else
-    # Exit gracefully if common-functions.sh missing
     exit 0
 fi
 
@@ -36,18 +32,16 @@ fi
 # Read JSON from stdin once
 INPUT=$(cat)
 
-# Parse all fields upfront
-CWD=$(jq -r '.cwd // "."' <<< "$INPUT")
-AGENT_TYPE=$(jq -r '.agent_type // "unknown"' <<< "$INPUT")
-AGENT_ID=$(jq -r '.agent_id // "no-id"' <<< "$INPUT")
-EXIT_STATUS=$(jq -r '.exit_status // "unknown"' <<< "$INPUT")
-TRANSCRIPT=$(jq -r '.transcript_path // ""' <<< "$INPUT")
-
-# Check if router is enabled for current project
-if ! is_router_enabled; then
-    # Router disabled - skip silently
-    exit 0
-fi
+# Parse all fields upfront in single jq call (optimization: combine 5 jq processes into 1)
+read -r CWD AGENT_TYPE AGENT_ID EXIT_STATUS TRANSCRIPT < <(
+    jq -r '[
+        .cwd // ".",
+        .agent_type // "unknown",
+        .agent_id // "no-id",
+        .exit_status // "unknown",
+        .transcript_path // ""
+    ] | @tsv' <<< "$INPUT"
+)
 
 # Setup project-specific paths (hybrid architecture)
 PROJECT_ROOT=$(detect_project_root || echo "global")
@@ -71,6 +65,9 @@ if [[ -n "$TRANSCRIPT" && -f "$TRANSCRIPT" ]]; then
     ' "$TRANSCRIPT" 2>/dev/null | head -c 80) || true
 fi
 [[ -z "$DESCRIPTION" ]] && DESCRIPTION="no description"
+
+# Sanitize description: remove/escape pipe chars and newlines (optimization: prevent log format corruption)
+DESCRIPTION_CLEAN=$(echo "$DESCRIPTION" | tr '|' ',' | tr '\n' ' ')
 
 # Calculate duration by finding the matching START entry
 # Log format: TIMESTAMP | PROJECT | AGENT_TYPE | AGENT_ID | START
@@ -133,7 +130,7 @@ determine_model_tier() {
 MODEL_TIER=$(determine_model_tier "$AGENT_TYPE")
 
 # Log format: TIMESTAMP | PROJECT | AGENT_TYPE | AGENT_ID | STOP | DURATION | DESCRIPTION
-LOG_ENTRY="$TIMESTAMP | $PROJECT | $AGENT_TYPE | $SHORT_AGENT_ID | STOP | ${DURATION_SEC:-?}s | $DESCRIPTION"
+LOG_ENTRY="$TIMESTAMP | $PROJECT | $AGENT_TYPE | $SHORT_AGENT_ID | STOP | ${DURATION_SEC:-?}s | $DESCRIPTION_CLEAN"
 
 # Atomic append to project log using flock
 (
@@ -155,7 +152,7 @@ METRICS_JSON=$(jq -c -n \
     --arg agent_id "$AGENT_ID" \
     --arg model_tier "$MODEL_TIER" \
     --arg exit_status "$EXIT_STATUS" \
-    --arg description "$DESCRIPTION" \
+    --arg description "$DESCRIPTION_CLEAN" \
     --argjson duration_ms "${DURATION_MS:-null}" \
     --argjson duration_sec "${DURATION_SEC:-null}" \
     '{
@@ -184,9 +181,9 @@ METRICS_JSON=$(jq -c -n \
 
 # Output to stderr for real-time visibility
 if [[ -n "${DURATION_SEC:-}" ]]; then
-    echo "[routing] ← $AGENT_TYPE (${DURATION_SEC}s): $DESCRIPTION" >&2
+    echo "[routing] ← $AGENT_TYPE (${DURATION_SEC}s): $DESCRIPTION_CLEAN" >&2
 else
-    echo "[routing] ← $AGENT_TYPE: $DESCRIPTION" >&2
+    echo "[routing] ← $AGENT_TYPE: $DESCRIPTION_CLEAN" >&2
 fi
 
 exit 0

@@ -7,24 +7,17 @@
 
 set -euo pipefail
 
-# Determine plugin root
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$0")")}"
-
-# Source common functions for dependency checking
-COMMON_FUNCTIONS="$PLUGIN_ROOT/hooks/common-functions.sh"
-if [ -f "$COMMON_FUNCTIONS" ]; then
-    # shellcheck source=common-functions.sh
-    source "$COMMON_FUNCTIONS"
-
-    # Check if router is enabled for this project
-    if ! is_router_enabled; then
-        # Router disabled for this project - skip silently
-        exit 0
-    fi
+# Source hook infrastructure
+HOOK_DIR="$(dirname "$0")"
+if [ -f "$HOOK_DIR/hook-preamble.sh" ]; then
+    # shellcheck source=hook-preamble.sh
+    source "$HOOK_DIR/hook-preamble.sh"
 else
-    # Exit gracefully if common-functions.sh missing
     exit 0
 fi
+
+# Derive plugin root for later use
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$HOOK_DIR")}"
 
 # Use project-specific cache directory (hybrid architecture)
 CACHE_DIR=$(get_project_data_dir "cache")

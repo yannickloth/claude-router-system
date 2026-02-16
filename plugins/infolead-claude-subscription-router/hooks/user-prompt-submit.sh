@@ -12,29 +12,19 @@ set -euo pipefail
 # Read user request from stdin
 USER_REQUEST=$(cat)
 
-# Determine router directory
-# Use plugin root if set, otherwise derive from script location
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$0")")}"
-
-# Source common functions for dependency checking
-COMMON_FUNCTIONS="$PLUGIN_ROOT/hooks/common-functions.sh"
-if [ -f "$COMMON_FUNCTIONS" ]; then
-    # shellcheck source=common-functions.sh
-    source "$COMMON_FUNCTIONS"
+# Source hook infrastructure
+HOOK_DIR="$(dirname "$0")"
+if [ -f "$HOOK_DIR/hook-preamble.sh" ]; then
+    # shellcheck source=hook-preamble.sh
+    source "$HOOK_DIR/hook-preamble.sh"
 else
-    # Fallback if common functions not available - fail silently
     exit 0
 fi
 
 # Verify routing script exists
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$HOOK_DIR")}"
 if [ ! -f "$PLUGIN_ROOT/implementation/routing_core.py" ]; then
     # Router system not properly installed - pass through silently
-    exit 0
-fi
-
-# Check if router is enabled for this project
-if ! is_router_enabled; then
-    # Router explicitly disabled for this project - pass through silently
     exit 0
 fi
 
@@ -67,10 +57,14 @@ if echo "$ROUTING_OUTPUT" | jq -e '.error' >/dev/null 2>&1; then
     exit 0
 fi
 
-# Extract recommendation for display
-AGENT=$(echo "$ROUTING_OUTPUT" | jq -r '.agent // "null"')
-REASON=$(echo "$ROUTING_OUTPUT" | jq -r '.reason // "no reason provided"')
-CONFIDENCE=$(echo "$ROUTING_OUTPUT" | jq -r '.confidence // 0')
+# Extract recommendation fields in single jq call (optimization: combine 3 jq processes into 1)
+read -r AGENT REASON CONFIDENCE < <(
+    jq -r '[
+        .agent // "null",
+        .reason // "no reason provided",
+        .confidence // 0
+    ] | @tsv' <<< "$ROUTING_OUTPUT"
+)
 
 # Make display clearer for escalation cases
 if [ "$AGENT" = "null" ]; then
@@ -120,8 +114,8 @@ METRICS_ENTRY=$(jq -c -n \
 echo "[ROUTER] Recommendation: $AGENT (confidence: $CONFIDENCE)" >&2
 echo "[ROUTER] Reason: $REASON" >&2
 
-# Extract decision from routing output for explicit action directive
-DECISION=$(echo "$ROUTING_OUTPUT" | jq -r '.decision // "unknown"')
+# Extract decision from routing output (already have ROUTING_OUTPUT parsed above)
+DECISION=$(jq -r '.decision // "unknown"' <<< "$ROUTING_OUTPUT")
 
 # Output routing recommendation to stdout for Claude (advisory input)
 # This gets injected into Claude's context as a system message

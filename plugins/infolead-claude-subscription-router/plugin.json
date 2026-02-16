@@ -26,6 +26,11 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/user-prompt-submit.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/check-context-threshold.sh",
+            "timeout": 5
           }
         ]
       }
@@ -38,6 +43,11 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/log-subagent-start.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/track-routing-compliance.sh",
+            "timeout": 10
           }
         ]
       }
@@ -61,11 +71,6 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/load-session-state.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/load-session-memory.sh",
             "timeout": 5
           },
           {

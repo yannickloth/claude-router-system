@@ -7,29 +7,26 @@
 
 set -euo pipefail
 
-# Determine plugin root
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$0")")}"
-
-# Source common functions for dependency checking
-COMMON_FUNCTIONS="$PLUGIN_ROOT/hooks/common-functions.sh"
-if [ -f "$COMMON_FUNCTIONS" ]; then
-    # shellcheck source=common-functions.sh
-    source "$COMMON_FUNCTIONS"
+# Source hook infrastructure
+HOOK_DIR="$(dirname "$0")"
+if [ -f "$HOOK_DIR/hook-preamble.sh" ]; then
+    # shellcheck source=hook-preamble.sh
+    source "$HOOK_DIR/hook-preamble.sh"
 else
-    # Exit gracefully if common-functions.sh missing
-    exit 0
-fi
-
-# Check if router is enabled for this project
-if ! is_router_enabled; then
-    # Router disabled for this project - skip silently
     exit 0
 fi
 
 # Use project-specific state directory (hybrid architecture)
 STATE_DIR=$(get_project_data_dir "state")
 STATE_FILE="$STATE_DIR/session-state.json"
+SESSION_FLAGS_FILE="$STATE_DIR/session-flags.json"
 LOCK_FILE="$STATE_FILE.lock"
+
+# Clear session flags at start of new session
+# This resets warnings like context threshold so they can trigger again
+if [ -f "$SESSION_FLAGS_FILE" ]; then
+    rm -f "$SESSION_FLAGS_FILE"
+fi
 
 # Check if session state exists
 if [ ! -f "$STATE_FILE" ]; then

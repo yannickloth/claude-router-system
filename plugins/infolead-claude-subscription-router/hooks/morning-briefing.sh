@@ -10,28 +10,18 @@
 
 set -euo pipefail
 
-# Determine plugin root
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$0")")}"
-
-# Source common functions for dependency checking
-COMMON_FUNCTIONS="$PLUGIN_ROOT/hooks/common-functions.sh"
-if [ -f "$COMMON_FUNCTIONS" ]; then
-    # shellcheck source=common-functions.sh
-    source "$COMMON_FUNCTIONS"
-
-    # Check if router is enabled for this project
-    if ! is_router_enabled; then
-        # Router disabled for this project - skip silently
-        exit 0
-    fi
-
-    # Check for jq - required for this hook
-    if ! check_jq "required"; then
-        # Warning already shown, exit gracefully
-        exit 0
-    fi
+# Source hook infrastructure
+HOOK_DIR="$(dirname "$0")"
+if [ -f "$HOOK_DIR/hook-preamble.sh" ]; then
+    # shellcheck source=hook-preamble.sh
+    source "$HOOK_DIR/hook-preamble.sh"
 else
-    # Exit gracefully if common-functions.sh missing
+    exit 0
+fi
+
+# Check for jq - required for this hook
+if ! check_jq "required"; then
+    # Warning already shown, exit gracefully
     exit 0
 fi
 
@@ -51,9 +41,13 @@ if [ ! -f "$QUEUE_FILE" ]; then
     exit 0
 fi
 
-# Check for completed overnight work
-COMPLETED_COUNT=$(jq '[.completed_overnight // empty] | length' "$QUEUE_FILE" 2>/dev/null || echo "0")
-FAILED_COUNT=$(jq '[.failed_overnight // empty] | length' "$QUEUE_FILE" 2>/dev/null || echo "0")
+# Check for completed overnight work in single jq call (optimization: combine 2 jq processes into 1)
+read -r COMPLETED_COUNT FAILED_COUNT < <(
+    jq -r '[
+        ([.completed_overnight // empty] | length),
+        ([.failed_overnight // empty] | length)
+    ] | @tsv' "$QUEUE_FILE" 2>/dev/null || echo "0	0"
+)
 
 # If no overnight work completed or failed, exit
 if [ "$COMPLETED_COUNT" = "0" ] && [ "$FAILED_COUNT" = "0" ]; then

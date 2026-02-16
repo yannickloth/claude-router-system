@@ -101,7 +101,7 @@ def create_agent_executor(project_contexts: Dict[str, str]) -> callable:
     """
     # Find claude executable
     claude_path = None
-    for path in ['/home/nicky/.local/bin/claude', '/usr/local/bin/claude', '/usr/bin/claude']:
+    for path in [os.path.expanduser('~/.local/bin/claude'), '/usr/local/bin/claude', '/usr/bin/claude']:
         if os.path.exists(path):
             claude_path = path
             break
@@ -218,11 +218,8 @@ async def execute_overnight_work(
     scheduler = TemporalScheduler(state_file=queue_file)
     executor = OvernightWorkExecutor(scheduler)
 
-    # Create work items map for executor lookup
-    work_items_map = {item.description: item for item in work_items}
-
     # Create agent executor function
-    agent_executor = create_agent_executor(project_contexts, work_items_map)
+    agent_executor = create_agent_executor(project_contexts)
 
     # Execute with timeout
     try:
